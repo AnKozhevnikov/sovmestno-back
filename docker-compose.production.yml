@@ -1,0 +1,214 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sovmestno-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  liquibase:
+    image: liquibase/liquibase:4.27
+    container_name: liquibase
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./liquibase:/liquibase/changelog
+    networks:
+      - sovmestno-network
+    command: >
+      --searchPath=/liquibase/changelog
+      --url=jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      --changeLogFile=changelog.xml
+      --username=${POSTGRES_USER}
+      --password=${POSTGRES_PASSWORD}
+      update
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    networks:
+      - sovmestno-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ./minio_setup.sh:/usr/local/bin/minio_setup.sh:ro
+    networks:
+      - sovmestno-network
+    entrypoint: ["/bin/sh", "/usr/local/bin/minio_setup.sh"]
+
+  event-service:
+    build: ./event-service
+    container_name: event-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      liquibase:
+        condition: service_completed_successfully
+    environment:
+      PORT: ${EVENT_SERVICE_PORT:-8082}
+      DB_DSN: ${DB_DSN}
+      GIN_MODE: ${GIN_MODE:-release}
+    networks:
+      - sovmestno-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  application-service:
+    build: ./application-service
+    container_name: application-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      liquibase:
+        condition: service_completed_successfully
+    environment:
+      SERVER_PORT: ${APPLICATION_SERVICE_PORT:-8083}
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      GIN_MODE: ${GIN_MODE:-release}
+    networks:
+      - sovmestno-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8083/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  gateway:
+    build: ./gateway
+    container_name: gateway
+    depends_on:
+      user-service:
+        condition: service_healthy
+      event-service:
+        condition: service_healthy
+      application-service:
+        condition: service_healthy
+    environment:
+      PORT: ${GATEWAY_PORT:-8080}
+      USER_SERVICE_URL: ${USER_SERVICE_URL}
+      EVENT_SERVICE_URL: ${EVENT_SERVICE_URL}
+      APPLICATION_SERVICE_URL: ${APPLICATION_SERVICE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      GIN_MODE: ${GIN_MODE:-release}
+    networks:
+      - sovmestno-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      liquibase:
+        condition: service_completed_successfully
+    environment:
+      PORT: ${USER_SERVICE_PORT:-8081}
+      DB_DSN: ${DB_DSN}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      GIN_MODE: ${GIN_MODE:-release}
+    networks:
+      - sovmestno-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.production.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - certbot_data:/var/www/certbot:ro
+      - letsencrypt_data:/etc/letsencrypt:ro
+      # Frontend static files (uncomment when frontend is ready)
+      # - /var/www/sovmestno-frontend:/var/www/sovmestno-frontend:ro
+    depends_on:
+      - gateway
+    networks:
+      - sovmestno-network
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: certbot
+    volumes:
+      - certbot_data:/var/www/certbot
+      - letsencrypt_data:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  minio_data:
+  certbot_data:
+  letsencrypt_data:
+
+networks:
+  sovmestno-network:
+    driver: bridge

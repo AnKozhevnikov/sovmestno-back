@@ -51,3 +51,14 @@ temp/
 
 # Swagger generated docs (generated during Docker build)
 **/docs/
+
+# Deployment
+backup_*.sql
+*.pem
+*.key
+*.crt
+
+# Generated nginx configs (from templates)
+nginx/nginx.staging.conf
+nginx/nginx.production.conf
+nginx/*.conf.backup

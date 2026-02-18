@@ -1,0 +1,137 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to Staging Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGING_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.STAGING_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create .env file from secrets
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+        run: |
+          ssh ${STAGING_SSH_USER}@${STAGING_HOST} << 'ENDSSH'
+            set -e
+            cd ~/sovmestno-back
+
+            echo "Creating .env file from GitHub Secrets..."
+            cat > .env << 'EOF'
+          ENDSSH
+
+          # Send .env content
+          ssh ${STAGING_SSH_USER}@${STAGING_HOST} "cat >> ~/sovmestno-back/.env" << EOF
+          # Environment
+          ENVIRONMENT=staging
+
+          # PostgreSQL
+          POSTGRES_DB=${{ secrets.STAGING_POSTGRES_DB }}
+          POSTGRES_USER=${{ secrets.STAGING_POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.STAGING_POSTGRES_PASSWORD }}
+          DB_DSN=postgres://${{ secrets.STAGING_POSTGRES_USER }}:${{ secrets.STAGING_POSTGRES_PASSWORD }}@postgres:5432/${{ secrets.STAGING_POSTGRES_DB }}?sslmode=disable
+
+          # MinIO
+          MINIO_ROOT_USER=${{ secrets.STAGING_MINIO_ROOT_USER }}
+          MINIO_ROOT_PASSWORD=${{ secrets.STAGING_MINIO_ROOT_PASSWORD }}
+          MINIO_ENDPOINT=minio:9000
+          MINIO_ACCESS_KEY=${{ secrets.STAGING_MINIO_ROOT_USER }}
+          MINIO_SECRET_KEY=${{ secrets.STAGING_MINIO_ROOT_PASSWORD }}
+
+          # Gateway
+          GATEWAY_PORT=8080
+          GIN_MODE=release
+          ALLOWED_ORIGINS=${{ secrets.STAGING_ALLOWED_ORIGINS }}
+
+          # JWT
+          JWT_SECRET=${{ secrets.STAGING_JWT_SECRET }}
+
+          # Admin Secret Key
+          ADMIN_SECRET_KEY=${{ secrets.STAGING_ADMIN_SECRET_KEY }}
+
+          # Microservices
+          USER_SERVICE_PORT=8081
+          USER_SERVICE_URL=http://user-service:8081
+
+          EVENT_SERVICE_PORT=8082
+          EVENT_SERVICE_URL=http://event-service:8082
+
+          APPLICATION_SERVICE_PORT=8083
+          APPLICATION_SERVICE_URL=http://application-service:8083
+
+          # Domain and SSL
+          DOMAIN=${{ secrets.STAGING_DOMAIN }}
+          SSL_EMAIL=${{ secrets.STAGING_SSL_EMAIL }}
+          EOF
+
+      - name: Deploy to server
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+        run: |
+          ssh ${STAGING_SSH_USER}@${STAGING_HOST} << 'ENDSSH'
+            set -e
+
+            echo "Navigating to project directory..."
+            cd ~/sovmestno-back
+
+            echo "Pulling latest changes..."
+            git pull origin main
+
+            echo "Stopping services..."
+            docker compose -f docker-compose.staging.yml down
+
+            echo "Building services..."
+            docker compose -f docker-compose.staging.yml build --no-cache
+
+            echo "Starting services..."
+            docker compose -f docker-compose.staging.yml up -d
+
+            echo "Cleaning up old images..."
+            docker image prune -f
+
+            echo "Deployment complete!"
+
+            echo "Service status:"
+            docker compose -f docker-compose.staging.yml ps
+          ENDSSH
+
+      - name: Verify deployment
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+        run: |
+          echo "Waiting 30 seconds for services to start..."
+          sleep 30
+
+          ssh ${STAGING_SSH_USER}@${STAGING_HOST} << 'ENDSSH'
+            echo "Checking health endpoints..."
+
+            # Check gateway health
+            if docker exec gateway wget --no-verbose --tries=1 -O /dev/null http://localhost:8080/health; then
+              echo "Gateway is healthy"
+            else
+              echo "Gateway health check failed"
+              exit 1
+            fi
+          ENDSSH
+
+      - name: Send notification on failure
+        if: failure()
+        run: |
+          echo "Deployment to staging failed!"
+          # Add notification logic here (Telegram, Slack, etc.)
