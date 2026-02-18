@@ -21,6 +21,14 @@ NC='\033[0m'
 
 echo "Starting SSL certificate setup..."
 
+# Check if envsubst is installed
+if ! command -v envsubst &> /dev/null; then
+  echo -e "${RED}[ERROR] envsubst not found!${NC}"
+  echo "Please install gettext-base package:"
+  echo "  sudo apt-get update && sudo apt-get install -y gettext-base"
+  exit 1
+fi
+
 # Load environment variables
 if [ ! -f .env ]; then
   echo -e "${RED}[ERROR] .env file not found!${NC}"
@@ -112,6 +120,13 @@ fi
 
 # Step 1: Create temporary nginx config for ACME challenge
 echo "[1/7] Creating temporary nginx configuration for ACME challenge..."
+
+# Remove nginx config if it's a directory (Docker creates it if file doesn't exist)
+if [ -d "$OUTPUT" ]; then
+  echo "Removing directory created by Docker: ${OUTPUT}"
+  rm -rf "$OUTPUT"
+fi
+
 TEMP_CONF=$(mktemp)
 cat > $TEMP_CONF << 'EOF'
 events {

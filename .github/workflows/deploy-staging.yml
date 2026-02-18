@@ -109,6 +109,14 @@ jobs:
             # Run build without kernel messages interference
             script -q -c "docker compose -f docker-compose.staging.yml build" /dev/null
 
+            echo "Generating nginx configuration from template..."
+            # Remove nginx config if it's a directory (Docker creates it if file doesn't exist)
+            if [ -d "nginx/nginx.staging.conf" ]; then
+              rm -rf nginx/nginx.staging.conf
+            fi
+            export $(grep -v '^#' .env | xargs)
+            envsubst '${DOMAIN}' < nginx/nginx.staging.conf.template > nginx/nginx.staging.conf
+
             echo "Starting services..."
             docker compose -f docker-compose.staging.yml up -d
 

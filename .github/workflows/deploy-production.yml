@@ -147,6 +147,14 @@ jobs:
             echo "Building services..."
             docker compose -f docker-compose.production.yml build --no-cache
 
+            echo "Generating nginx configuration from template..."
+            # Remove nginx config if it's a directory (Docker creates it if file doesn't exist)
+            if [ -d "nginx/nginx.production.conf" ]; then
+              rm -rf nginx/nginx.production.conf
+            fi
+            export $(grep -v '^#' .env | xargs)
+            envsubst '${DOMAIN}' < nginx/nginx.production.conf.template > nginx/nginx.production.conf
+
             echo "Starting services..."
             docker compose -f docker-compose.production.yml up -d
 
