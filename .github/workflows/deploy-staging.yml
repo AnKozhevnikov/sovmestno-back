@@ -25,17 +25,21 @@ jobs:
         env:
           STAGING_HOST: ${{ secrets.STAGING_HOST }}
           STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.STAGING_POSTGRES_PASSWORD }}
         run: |
+          # URL-encode password for DB_DSN
+          ENCODED_PASSWORD=$(printf '%s' "$POSTGRES_PASSWORD" | jq -sRr @uri)
+
           # Create .env content locally
-          cat > /tmp/staging.env << 'ENVFILE'
+          cat > /tmp/staging.env << ENVFILE
           # Environment
           ENVIRONMENT=staging
 
           # PostgreSQL
           POSTGRES_DB=${{ secrets.STAGING_POSTGRES_DB }}
           POSTGRES_USER=${{ secrets.STAGING_POSTGRES_USER }}
-          POSTGRES_PASSWORD=${{ secrets.STAGING_POSTGRES_PASSWORD }}
-          DB_DSN=postgres://${{ secrets.STAGING_POSTGRES_USER }}:${{ secrets.STAGING_POSTGRES_PASSWORD }}@postgres:5432/${{ secrets.STAGING_POSTGRES_DB }}?sslmode=disable
+          POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+          DB_DSN=postgres://${{ secrets.STAGING_POSTGRES_USER }}:${ENCODED_PASSWORD}@postgres:5432/${{ secrets.STAGING_POSTGRES_DB }}?sslmode=disable
 
           # MinIO
           MINIO_ROOT_USER=${{ secrets.STAGING_MINIO_ROOT_USER }}
@@ -102,7 +106,8 @@ jobs:
             docker compose -f docker-compose.staging.yml down
 
             echo "Building services..."
-            docker compose -f docker-compose.staging.yml build --no-cache
+            # Run build without kernel messages interference
+            script -q -c "docker compose -f docker-compose.staging.yml build" /dev/null
 
             echo "Starting services..."
             docker compose -f docker-compose.staging.yml up -d

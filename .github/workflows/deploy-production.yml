@@ -44,17 +44,21 @@ jobs:
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.PROD_POSTGRES_PASSWORD }}
         run: |
+          # URL-encode password for DB_DSN
+          ENCODED_PASSWORD=$(printf '%s' "$POSTGRES_PASSWORD" | jq -sRr @uri)
+
           # Create .env content locally
-          cat > /tmp/production.env << 'ENVFILE'
+          cat > /tmp/production.env << ENVFILE
           # Environment
           ENVIRONMENT=production
 
           # PostgreSQL
           POSTGRES_DB=${{ secrets.PROD_POSTGRES_DB }}
           POSTGRES_USER=${{ secrets.PROD_POSTGRES_USER }}
-          POSTGRES_PASSWORD=${{ secrets.PROD_POSTGRES_PASSWORD }}
-          DB_DSN=postgres://${{ secrets.PROD_POSTGRES_USER }}:${{ secrets.PROD_POSTGRES_PASSWORD }}@postgres:5432/${{ secrets.PROD_POSTGRES_DB }}?sslmode=disable
+          POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+          DB_DSN=postgres://${{ secrets.PROD_POSTGRES_USER }}:${ENCODED_PASSWORD}@postgres:5432/${{ secrets.PROD_POSTGRES_DB }}?sslmode=disable
 
           # MinIO
           MINIO_ROOT_USER=${{ secrets.PROD_MINIO_ROOT_USER }}
