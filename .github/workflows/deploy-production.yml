@@ -45,16 +45,8 @@ jobs:
           PROD_HOST: ${{ secrets.PROD_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
         run: |
-          ssh ${PROD_SSH_USER}@${PROD_HOST} << 'ENDSSH'
-            set -e
-            cd ~/sovmestno-back
-
-            echo "Creating .env file from GitHub Secrets..."
-            cat > .env << 'EOF'
-          ENDSSH
-
-          # Send .env content
-          ssh ${PROD_SSH_USER}@${PROD_HOST} "cat >> ~/sovmestno-back/.env" << EOF
+          # Create .env content locally
+          cat > /tmp/production.env << 'ENVFILE'
           # Environment
           ENVIRONMENT=production
 
@@ -80,7 +72,7 @@ jobs:
           JWT_SECRET=${{ secrets.PROD_JWT_SECRET }}
 
           # Admin Secret Key
-          ADMIN_SECRET_KEY=${{ secrets.PROD_ADMIN_SECRET_KEY }}
+          ADMIN_SECRET_KEY=${{ secrets.ADMIN_SECRET_KEY }}
 
           # Microservices
           USER_SERVICE_PORT=8081
@@ -95,7 +87,14 @@ jobs:
           # Domain and SSL
           DOMAIN=${{ secrets.PROD_DOMAIN }}
           SSL_EMAIL=${{ secrets.PROD_SSL_EMAIL }}
-          EOF
+          ENVFILE
+
+          # Copy .env file to server
+          echo "Uploading .env file to server..."
+          scp /tmp/production.env ${PROD_SSH_USER}@${PROD_HOST}:~/sovmestno-back/.env
+
+          # Cleanup
+          rm /tmp/production.env
 
       - name: Create backup
         env:
@@ -124,6 +123,13 @@ jobs:
         run: |
           ssh ${PROD_SSH_USER}@${PROD_HOST} << 'ENDSSH'
             set -e
+
+            echo "Checking if repository exists..."
+            if [ ! -d ~/sovmestno-back ]; then
+              echo "Repository not found. Cloning..."
+              cd ~
+              git clone https://github.com/${{ github.repository }}.git sovmestno-back
+            fi
 
             echo "Navigating to project directory..."
             cd ~/sovmestno-back

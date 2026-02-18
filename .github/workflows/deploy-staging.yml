@@ -26,16 +26,8 @@ jobs:
           STAGING_HOST: ${{ secrets.STAGING_HOST }}
           STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
         run: |
-          ssh ${STAGING_SSH_USER}@${STAGING_HOST} << 'ENDSSH'
-            set -e
-            cd ~/sovmestno-back
-
-            echo "Creating .env file from GitHub Secrets..."
-            cat > .env << 'EOF'
-          ENDSSH
-
-          # Send .env content
-          ssh ${STAGING_SSH_USER}@${STAGING_HOST} "cat >> ~/sovmestno-back/.env" << EOF
+          # Create .env content locally
+          cat > /tmp/staging.env << 'ENVFILE'
           # Environment
           ENVIRONMENT=staging
 
@@ -76,7 +68,14 @@ jobs:
           # Domain and SSL
           DOMAIN=${{ secrets.STAGING_DOMAIN }}
           SSL_EMAIL=${{ secrets.STAGING_SSL_EMAIL }}
-          EOF
+          ENVFILE
+
+          # Copy .env file to server
+          echo "Uploading .env file to server..."
+          scp /tmp/staging.env ${STAGING_SSH_USER}@${STAGING_HOST}:~/sovmestno-back/.env
+
+          # Cleanup
+          rm /tmp/staging.env
 
       - name: Deploy to server
         env:
@@ -85,6 +84,13 @@ jobs:
         run: |
           ssh ${STAGING_SSH_USER}@${STAGING_HOST} << 'ENDSSH'
             set -e
+
+            echo "Checking if repository exists..."
+            if [ ! -d ~/sovmestno-back ]; then
+              echo "Repository not found. Cloning..."
+              cd ~
+              git clone https://github.com/${{ github.repository }}.git sovmestno-back
+            fi
 
             echo "Navigating to project directory..."
             cd ~/sovmestno-back
