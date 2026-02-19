@@ -187,8 +187,6 @@ services:
       - letsencrypt_data:/etc/letsencrypt:ro
       # Frontend static files (uncomment when frontend is ready)
       # - /var/www/sovmestno-frontend:/var/www/sovmestno-frontend:ro
-    depends_on:
-      - gateway
     networks:
       - sovmestno-network
     restart: unless-stopped
