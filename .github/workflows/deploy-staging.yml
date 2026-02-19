@@ -189,14 +189,21 @@ jobs:
 
             # Check gateway health
             echo "Checking gateway health endpoint..."
-            if timeout 10 docker exec gateway wget --no-verbose --tries=1 -O /dev/null http://localhost:8080/health 2>&1; then
-              echo "✓ Gateway is healthy"
+            set +e  # Temporarily disable exit on error to capture result
+            timeout 10 docker exec gateway wget --no-verbose --tries=1 -O /dev/null http://localhost:8080/health 2>&1
+            HEALTH_EXIT_CODE=$?
+            set -e  # Re-enable exit on error
+
+            if [ $HEALTH_EXIT_CODE -eq 0 ]; then
+              echo "✓ Gateway is healthy (exit code: $HEALTH_EXIT_CODE)"
             else
-              echo "✗ Gateway health check failed"
+              echo "✗ Gateway health check failed (exit code: $HEALTH_EXIT_CODE)"
               echo "Gateway logs:"
               docker logs gateway --tail=50
               exit 1
             fi
+
+            echo "All health checks passed!"
           ENDSSH
 
       - name: Send notification on failure

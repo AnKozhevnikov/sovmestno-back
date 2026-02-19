@@ -257,6 +257,9 @@ jobs:
               docker logs user-service --tail=50
               exit 1
             fi
+
+            echo ""
+            echo "All health checks passed!"
           ENDSSH
 
       - name: Rollback on failure
