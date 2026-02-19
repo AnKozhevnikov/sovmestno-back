@@ -133,13 +133,22 @@ jobs:
             echo "Nginx config size: $(wc -c < nginx/nginx.staging.conf) bytes"
 
             echo "Starting services..."
-            docker compose -f docker-compose.staging.yml up -d
+            docker compose -f docker-compose.staging.yml up -d 2>&1 | tee /tmp/docker-up.log
+            echo "Docker compose up exit code: $?"
 
             echo "Waiting for containers to be created..."
             sleep 5
 
             echo "Container status:"
-            docker compose -f docker-compose.staging.yml ps
+            docker compose -f docker-compose.staging.yml ps -a
+
+            echo "Checking if gateway container exists..."
+            if ! docker ps -a --format '{{.Names}}' | grep -q '^gateway$'; then
+              echo "ERROR: Gateway container was not created!"
+              echo "Docker compose up log:"
+              cat /tmp/docker-up.log
+              exit 1
+            fi
 
             echo "Cleaning up old images..."
             docker image prune -f
