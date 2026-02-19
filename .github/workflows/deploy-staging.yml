@@ -176,13 +176,25 @@ jobs:
           sleep 30
 
           ssh ${STAGING_SSH_USER}@${STAGING_HOST} << 'ENDSSH'
+            set -e
             echo "Checking health endpoints..."
 
+            # Check if gateway container exists and is running
+            if ! docker ps --format '{{.Names}}' | grep -q '^gateway$'; then
+              echo "ERROR: Gateway container is not running!"
+              echo "Container status:"
+              docker ps -a | grep gateway || echo "Gateway container not found"
+              exit 1
+            fi
+
             # Check gateway health
-            if docker exec gateway wget --no-verbose --tries=1 -O /dev/null http://localhost:8080/health; then
-              echo "Gateway is healthy"
+            echo "Checking gateway health endpoint..."
+            if timeout 10 docker exec gateway wget --no-verbose --tries=1 -O /dev/null http://localhost:8080/health 2>&1; then
+              echo "✓ Gateway is healthy"
             else
-              echo "Gateway health check failed"
+              echo "✗ Gateway health check failed"
+              echo "Gateway logs:"
+              docker logs gateway --tail=50
               exit 1
             fi
           ENDSSH

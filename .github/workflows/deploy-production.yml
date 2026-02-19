@@ -215,37 +215,46 @@ jobs:
           sleep 30
 
           ssh ${PROD_SSH_USER}@${PROD_HOST} << 'ENDSSH'
+            set -e
             echo "Checking health endpoints..."
 
             # Check gateway health
-            if docker exec gateway wget --no-verbose --tries=1 -O /dev/null http://localhost:8080/health; then
-              echo "Gateway is healthy"
+            echo "Checking gateway..."
+            if timeout 10 docker exec gateway wget --no-verbose --tries=1 -O /dev/null http://localhost:8080/health 2>&1; then
+              echo "✓ Gateway is healthy"
             else
-              echo "Gateway health check failed"
+              echo "✗ Gateway health check failed"
+              docker logs gateway --tail=50
               exit 1
             fi
 
             # Check event-service health
-            if docker exec event-service wget --no-verbose --tries=1 -O /dev/null http://localhost:8082/health; then
-              echo "Event service is healthy"
+            echo "Checking event-service..."
+            if timeout 10 docker exec event-service wget --no-verbose --tries=1 -O /dev/null http://localhost:8082/health 2>&1; then
+              echo "✓ Event service is healthy"
             else
-              echo "Event service health check failed"
+              echo "✗ Event service health check failed"
+              docker logs event-service --tail=50
               exit 1
             fi
 
             # Check application-service health
-            if docker exec application-service wget --no-verbose --tries=1 -O /dev/null http://localhost:8083/health; then
-              echo "Application service is healthy"
+            echo "Checking application-service..."
+            if timeout 10 docker exec application-service wget --no-verbose --tries=1 -O /dev/null http://localhost:8083/health 2>&1; then
+              echo "✓ Application service is healthy"
             else
-              echo "Application service health check failed"
+              echo "✗ Application service health check failed"
+              docker logs application-service --tail=50
               exit 1
             fi
 
             # Check user-service health
-            if docker exec user-service wget --no-verbose --tries=1 -O /dev/null http://localhost:8081/health; then
-              echo "User service is healthy"
+            echo "Checking user-service..."
+            if timeout 10 docker exec user-service wget --no-verbose --tries=1 -O /dev/null http://localhost:8081/health 2>&1; then
+              echo "✓ User service is healthy"
             else
-              echo "User service health check failed"
+              echo "✗ User service health check failed"
+              docker logs user-service --tail=50
               exit 1
             fi
           ENDSSH
