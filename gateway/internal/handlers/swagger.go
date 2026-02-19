@@ -63,7 +63,11 @@ func serveModifiedSwaggerSpec(c *gin.Context) {
 		return
 	}
 
-	spec["host"] = "localhost:8080"
+	apiHost := os.Getenv("API_HOST")
+	if apiHost == "" {
+		apiHost = c.Request.Host // Use current request host if not set
+	}
+	spec["host"] = apiHost
 	spec["basePath"] = "/"
 
 	if paths, ok := spec["paths"].(map[string]interface{}); ok {
@@ -131,7 +135,11 @@ func serveModifiedEventSwaggerSpec(c *gin.Context) {
 		return
 	}
 
-	spec["host"] = "localhost:8080"
+	apiHost := os.Getenv("API_HOST")
+	if apiHost == "" {
+		apiHost = c.Request.Host // Use current request host if not set
+	}
+	spec["host"] = apiHost
 	spec["basePath"] = "/"
 
 	if paths, ok := spec["paths"].(map[string]interface{}); ok {

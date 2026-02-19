@@ -134,6 +134,7 @@ services:
       APPLICATION_SERVICE_URL: ${APPLICATION_SERVICE_URL}
       JWT_SECRET: ${JWT_SECRET}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      API_HOST: ${API_HOST}
       GIN_MODE: ${GIN_MODE:-release}
     networks:
       - sovmestno-network

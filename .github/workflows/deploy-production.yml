@@ -70,6 +70,7 @@ jobs:
           # Gateway
           GATEWAY_PORT=8080
           GIN_MODE=release
+          API_HOST=${{ secrets.PROD_DOMAIN }}
           ALLOWED_ORIGINS=${{ secrets.PROD_ALLOWED_ORIGINS }}
 
           # JWT
