@@ -113,13 +113,33 @@ jobs:
             echo "Generating nginx configuration from template..."
             # Remove nginx config if it's a directory (Docker creates it if file doesn't exist)
             if [ -d "nginx/nginx.staging.conf" ]; then
+              echo "Removing nginx config directory..."
               rm -rf nginx/nginx.staging.conf
             fi
-            export $(grep -v '^#' .env | xargs)
+
+            echo "Loading environment variables..."
+            set -a
+            source .env
+            set +a
+
+            echo "Generating nginx config from template..."
             envsubst '${DOMAIN}' < nginx/nginx.staging.conf.template > nginx/nginx.staging.conf
+
+            echo "Verifying nginx config was created..."
+            if [ ! -f "nginx/nginx.staging.conf" ]; then
+              echo "ERROR: nginx config was not created!"
+              exit 1
+            fi
+            echo "Nginx config size: $(wc -c < nginx/nginx.staging.conf) bytes"
 
             echo "Starting services..."
             docker compose -f docker-compose.staging.yml up -d
+
+            echo "Waiting for containers to be created..."
+            sleep 5
+
+            echo "Container status:"
+            docker compose -f docker-compose.staging.yml ps
 
             echo "Cleaning up old images..."
             docker image prune -f
