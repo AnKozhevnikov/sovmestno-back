@@ -107,8 +107,7 @@ jobs:
             docker compose -f docker-compose.staging.yml down
 
             echo "Building services..."
-            # Run build without kernel messages interference
-            script -q -c "docker compose -f docker-compose.staging.yml build" /dev/null
+            docker compose -f docker-compose.staging.yml build 2>&1
 
             echo "Generating nginx configuration from template..."
             # Remove nginx config if it's a directory (Docker creates it if file doesn't exist)
@@ -121,6 +120,7 @@ jobs:
             set -a
             source .env
             set +a
+            echo "DOMAIN is: $DOMAIN"
 
             echo "Generating nginx config from template..."
             envsubst '${DOMAIN}' < nginx/nginx.staging.conf.template > nginx/nginx.staging.conf
@@ -132,9 +132,17 @@ jobs:
             fi
             echo "Nginx config size: $(wc -c < nginx/nginx.staging.conf) bytes"
 
-            echo "Starting services..."
-            docker compose -f docker-compose.staging.yml up -d 2>&1 | tee /tmp/docker-up.log
-            echo "Docker compose up exit code: $?"
+            echo "===== STARTING SERVICES ====="
+            echo "About to run: docker compose -f docker-compose.staging.yml up -d"
+            docker compose -f docker-compose.staging.yml up -d
+            UP_EXIT_CODE=$?
+            echo "===== DOCKER COMPOSE UP FINISHED ====="
+            echo "Exit code: $UP_EXIT_CODE"
+
+            if [ $UP_EXIT_CODE -ne 0 ]; then
+              echo "ERROR: docker compose up failed with exit code $UP_EXIT_CODE"
+              exit 1
+            fi
 
             echo "Waiting for containers to be created..."
             sleep 5

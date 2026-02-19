@@ -159,6 +159,7 @@ jobs:
             set -a
             source .env
             set +a
+            echo "DOMAIN is: $DOMAIN"
 
             echo "Generating nginx config from template..."
             envsubst '${DOMAIN}' < nginx/nginx.production.conf.template > nginx/nginx.production.conf
@@ -170,9 +171,17 @@ jobs:
             fi
             echo "Nginx config size: $(wc -c < nginx/nginx.production.conf) bytes"
 
-            echo "Starting services..."
-            docker compose -f docker-compose.production.yml up -d 2>&1 | tee /tmp/docker-up.log
-            echo "Docker compose up exit code: $?"
+            echo "===== STARTING SERVICES ====="
+            echo "About to run: docker compose -f docker-compose.production.yml up -d"
+            docker compose -f docker-compose.production.yml up -d
+            UP_EXIT_CODE=$?
+            echo "===== DOCKER COMPOSE UP FINISHED ====="
+            echo "Exit code: $UP_EXIT_CODE"
+
+            if [ $UP_EXIT_CODE -ne 0 ]; then
+              echo "ERROR: docker compose up failed with exit code $UP_EXIT_CODE"
+              exit 1
+            fi
 
             echo "Waiting for containers to be created..."
             sleep 5
