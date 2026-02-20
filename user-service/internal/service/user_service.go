@@ -339,7 +339,8 @@ func (s *UserService) UpdateVenue(id, userID int, req *CreateVenueRequest) (*mod
 	// Обновляем поля
 	venue.Name = req.Name
 	venue.Description = req.Description
-	venue.Address = req.Address
+	venue.StreetAddress = req.StreetAddress
+	venue.CityID = req.CityID
 	venue.OpeningHours = req.OpeningHours
 	venue.Capacity = req.Capacity
 	venue.LogoID = req.LogoID
@@ -393,7 +394,8 @@ func (s *UserService) UpdateVenueByUserID(targetUserID, currentUserID int, req *
 	// Обновляем поля
 	venue.Name = req.Name
 	venue.Description = req.Description
-	venue.Address = req.Address
+	venue.StreetAddress = req.StreetAddress
+	venue.CityID = req.CityID
 	venue.OpeningHours = req.OpeningHours
 	venue.Capacity = req.Capacity
 	venue.LogoID = req.LogoID

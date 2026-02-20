@@ -39,21 +39,22 @@ type RegisterCreatorRequest struct {
 }
 
 type RegisterVenueRequest struct {
-	Email        string `json:"email" binding:"required,email"`
-	Password     string `json:"password" binding:"required,min=6"`
-	Name         string `json:"name" binding:"required"`
-	Description  string `json:"description"`
-	Address      string `json:"address"`
-	OpeningHours string `json:"opening_hours"`
-	Capacity     int    `json:"capacity"`
-	Phone        string `json:"phone"`
-	WorkEmail    string `json:"work_email"`
-	TgPersonal   string `json:"tg_personal_link"`
-	TgChannel    string `json:"tg_channel_link"`
-	VkLink       string `json:"vk_link"`
-	TiktokLink   string `json:"tiktok_link"`
-	YoutubeLink  string `json:"youtube_link"`
-	DzenLink     string `json:"dzen_link"`
+	Email         string `json:"email" binding:"required,email"`
+	Password      string `json:"password" binding:"required,min=6"`
+	Name          string `json:"name" binding:"required"`
+	Description   string `json:"description"`
+	StreetAddress string `json:"street_address"`
+	CityID        *int   `json:"city_id"`
+	OpeningHours  string `json:"opening_hours"`
+	Capacity      int    `json:"capacity"`
+	Phone         string `json:"phone"`
+	WorkEmail     string `json:"work_email"`
+	TgPersonal    string `json:"tg_personal_link"`
+	TgChannel     string `json:"tg_channel_link"`
+	VkLink        string `json:"vk_link"`
+	TiktokLink    string `json:"tiktok_link"`
+	YoutubeLink   string `json:"youtube_link"`
+	DzenLink      string `json:"dzen_link"`
 	CategoryIDs  []int  `json:"category_ids"`
 }
 
@@ -153,20 +154,21 @@ func (s *AuthService) RegisterVenue(req *RegisterVenueRequest) (*AuthResponse, e
 
 	// Создаем профиль площадки
 	venue := &models.Venue{
-		UserID:       user.ID,
-		Name:         req.Name,
-		Description:  req.Description,
-		Address:      req.Address,
-		OpeningHours: req.OpeningHours,
-		Capacity:     req.Capacity,
-		Phone:        req.Phone,
-		WorkEmail:    req.WorkEmail,
-		TgPersonal:   req.TgPersonal,
-		TgChannel:    req.TgChannel,
-		VkLink:       req.VkLink,
-		TiktokLink:   req.TiktokLink,
-		YoutubeLink:  req.YoutubeLink,
-		DzenLink:     req.DzenLink,
+		UserID:        user.ID,
+		Name:          req.Name,
+		Description:   req.Description,
+		StreetAddress: req.StreetAddress,
+		CityID:        req.CityID,
+		OpeningHours:  req.OpeningHours,
+		Capacity:      req.Capacity,
+		Phone:         req.Phone,
+		WorkEmail:     req.WorkEmail,
+		TgPersonal:    req.TgPersonal,
+		TgChannel:     req.TgChannel,
+		VkLink:        req.VkLink,
+		TiktokLink:    req.TiktokLink,
+		YoutubeLink:   req.YoutubeLink,
+		DzenLink:      req.DzenLink,
 	}
 	if err := s.repo.CreateVenue(venue); err != nil {
 		return nil, errors.New("failed to create venue profile: " + err.Error())
