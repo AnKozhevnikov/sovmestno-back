@@ -200,22 +200,23 @@ func (s *UserService) DeleteCreatorByUserID(targetUserID, currentUserID int) err
 // Venue operations
 
 type CreateVenueRequest struct {
-	Name         string `json:"name" binding:"required"`
-	Description  string `json:"description"`
-	Address      string `json:"address"`
-	OpeningHours string `json:"opening_hours"`
-	Capacity     int    `json:"capacity"`
-	LogoID       *int   `json:"logo_id"`
-	CoverPhotoID *int   `json:"cover_photo_id"`
-	Phone        string `json:"phone"`
-	WorkEmail    string `json:"work_email"`
-	TgPersonal   string `json:"tg_personal_link"`
-	TgChannel    string `json:"tg_channel_link"`
-	VkLink       string `json:"vk_link"`
-	TiktokLink   string `json:"tiktok_link"`
-	YoutubeLink  string `json:"youtube_link"`
-	DzenLink     string `json:"dzen_link"`
-	CategoryIDs  []int  `json:"category_ids"` // Список ID категорий
+	Name          string `json:"name" binding:"required"`
+	Description   string `json:"description"`
+	StreetAddress string `json:"street_address"`
+	CityID        *int   `json:"city_id"`
+	OpeningHours  string `json:"opening_hours"`
+	Capacity      int    `json:"capacity"`
+	LogoID        *int   `json:"logo_id"`
+	CoverPhotoID  *int   `json:"cover_photo_id"`
+	Phone         string `json:"phone"`
+	WorkEmail     string `json:"work_email"`
+	TgPersonal    string `json:"tg_personal_link"`
+	TgChannel     string `json:"tg_channel_link"`
+	VkLink        string `json:"vk_link"`
+	TiktokLink    string `json:"tiktok_link"`
+	YoutubeLink   string `json:"youtube_link"`
+	DzenLink      string `json:"dzen_link"`
+	CategoryIDs   []int  `json:"category_ids"` // Список ID категорий
 }
 
 func (s *UserService) CreateVenue(userID int, req *CreateVenueRequest) (*models.Venue, error) {
@@ -226,22 +227,23 @@ func (s *UserService) CreateVenue(userID int, req *CreateVenueRequest) (*models.
 	}
 
 	venue := &models.Venue{
-		UserID:       userID,
-		Name:         req.Name,
-		Description:  req.Description,
-		Address:      req.Address,
-		OpeningHours: req.OpeningHours,
-		Capacity:     req.Capacity,
-		LogoID:       req.LogoID,
-		CoverPhotoID: req.CoverPhotoID,
-		Phone:        req.Phone,
-		WorkEmail:    req.WorkEmail,
-		TgPersonal:   req.TgPersonal,
-		TgChannel:    req.TgChannel,
-		VkLink:       req.VkLink,
-		TiktokLink:   req.TiktokLink,
-		YoutubeLink:  req.YoutubeLink,
-		DzenLink:     req.DzenLink,
+		UserID:        userID,
+		Name:          req.Name,
+		Description:   req.Description,
+		StreetAddress: req.StreetAddress,
+		CityID:        req.CityID,
+		OpeningHours:  req.OpeningHours,
+		Capacity:      req.Capacity,
+		LogoID:        req.LogoID,
+		CoverPhotoID:  req.CoverPhotoID,
+		Phone:         req.Phone,
+		WorkEmail:     req.WorkEmail,
+		TgPersonal:    req.TgPersonal,
+		TgChannel:     req.TgChannel,
+		VkLink:        req.VkLink,
+		TiktokLink:    req.TiktokLink,
+		YoutubeLink:   req.YoutubeLink,
+		DzenLink:      req.DzenLink,
 	}
 
 	if err := s.repo.CreateVenue(venue); err != nil {

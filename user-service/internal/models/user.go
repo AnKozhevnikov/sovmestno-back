@@ -43,25 +43,26 @@ type Creator struct {
 
 // Venue - профиль площадки
 type Venue struct {
-	ID           int       `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID       int       `gorm:"not null" json:"user_id"`
-	Name         string    `json:"name"`
-	Description  string    `json:"description,omitempty"`
-	Address      string    `json:"address,omitempty"`
-	OpeningHours string    `json:"opening_hours,omitempty"`
-	Capacity     int       `json:"capacity,omitempty"`
-	LogoID       *int      `json:"logo_id,omitempty"`
-	CoverPhotoID *int      `json:"cover_photo_id,omitempty"`
-	Phone        string    `json:"phone,omitempty"`
-	WorkEmail    string    `json:"work_email,omitempty"`
-	TgPersonal   string    `gorm:"column:tg_personal_link" json:"tg_personal_link,omitempty"`
-	TgChannel    string    `gorm:"column:tg_channel_link" json:"tg_channel_link,omitempty"`
-	VkLink       string    `json:"vk_link,omitempty"`
-	TiktokLink   string    `json:"tiktok_link,omitempty"`
-	YoutubeLink  string    `json:"youtube_link,omitempty"`
-	DzenLink     string    `json:"dzen_link,omitempty"`
-	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	ID            int       `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID        int       `gorm:"not null" json:"user_id"`
+	Name          string    `json:"name"`
+	Description   string    `json:"description,omitempty"`
+	StreetAddress string    `gorm:"column:street_address" json:"street_address,omitempty"`
+	CityID        *int      `json:"city_id,omitempty"`
+	OpeningHours  string    `json:"opening_hours,omitempty"`
+	Capacity      int       `json:"capacity,omitempty"`
+	LogoID        *int      `json:"logo_id,omitempty"`
+	CoverPhotoID  *int      `json:"cover_photo_id,omitempty"`
+	Phone         string    `json:"phone,omitempty"`
+	WorkEmail     string    `json:"work_email,omitempty"`
+	TgPersonal    string    `gorm:"column:tg_personal_link" json:"tg_personal_link,omitempty"`
+	TgChannel     string    `gorm:"column:tg_channel_link" json:"tg_channel_link,omitempty"`
+	VkLink        string    `json:"vk_link,omitempty"`
+	TiktokLink    string    `json:"tiktok_link,omitempty"`
+	YoutubeLink   string    `json:"youtube_link,omitempty"`
+	DzenLink      string    `json:"dzen_link,omitempty"`
+	CreatedAt     time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt     time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 
 	// Связи
 	User        User          `gorm:"foreignKey:UserID" json:"-"`
