@@ -50,7 +50,8 @@ apt-get install -y \
   lsb-release \
   git \
   ufw \
-  fail2ban
+  fail2ban \
+  rsync
 echo -e "${GREEN}[OK]${NC} Required packages installed"
 
 # Install Docker
