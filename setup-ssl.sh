@@ -251,18 +251,29 @@ if [ "$SKIP_CERT_REQUEST" = false ]; then
   echo "This may take a couple of minutes..."
   echo ""
 
+  # Determine volume name based on environment
+  if [ "$ENVIRONMENT" = "staging" ]; then
+    LETSENCRYPT_VOLUME="sovmestno-back_letsencrypt_data"
+  else
+    LETSENCRYPT_VOLUME="sovmestno-back_letsencrypt_data"
+  fi
+
   # Request API certificate
   if [ "$API_CERT_EXISTS" = true ]; then
     echo "API certificate already exists and is valid, skipping renewal"
     echo "Certificate: /etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
   else
     echo "Requesting certificate for API domain: ${DOMAIN}"
-    docker compose -f ${COMPOSE_FILE} run --rm certbot certonly \
+    docker run --rm \
+      -v $(pwd)/nginx/certbot:/var/www/certbot \
+      -v ${LETSENCRYPT_VOLUME}:/etc/letsencrypt \
+      certbot/certbot:latest certonly \
       --webroot \
       --webroot-path=/var/www/certbot \
       --email ${SSL_EMAIL} \
       --agree-tos \
       --no-eff-email \
+      --non-interactive \
       -d ${DOMAIN}
   fi
 
@@ -273,12 +284,16 @@ if [ "$SKIP_CERT_REQUEST" = false ]; then
     echo "Certificate: /etc/letsencrypt/live/${FRONTEND_DOMAIN}/fullchain.pem"
   else
     echo "Requesting certificate for frontend domain: ${FRONTEND_DOMAIN}"
-    docker compose -f ${COMPOSE_FILE} run --rm certbot certonly \
+    docker run --rm \
+      -v $(pwd)/nginx/certbot:/var/www/certbot \
+      -v ${LETSENCRYPT_VOLUME}:/etc/letsencrypt \
+      certbot/certbot:latest certonly \
       --webroot \
       --webroot-path=/var/www/certbot \
       --email ${SSL_EMAIL} \
       --agree-tos \
       --no-eff-email \
+      --non-interactive \
       -d ${FRONTEND_DOMAIN} \
       -d www.${FRONTEND_DOMAIN}
   fi
