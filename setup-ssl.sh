@@ -143,7 +143,7 @@ events {
 }
 
 http {
-    # API subdomain
+    # API subdomain - minimal config for ACME challenge
     server {
         listen 80;
         server_name ${DOMAIN};
@@ -158,7 +158,7 @@ http {
         }
     }
 
-    # Frontend main domain
+    # Frontend main domain - minimal config for ACME challenge
     server {
         listen 80;
         server_name ${FRONTEND_DOMAIN} www.${FRONTEND_DOMAIN};
@@ -252,19 +252,11 @@ if [ "$SKIP_CERT_REQUEST" = false ]; then
   echo ""
 
   # Request API certificate
-  echo "Requesting certificate for API domain: ${DOMAIN}"
   if [ "$API_CERT_EXISTS" = true ]; then
-    # Renew existing (only if expiring in <30 days)
-    docker compose -f ${COMPOSE_FILE} run --rm certbot certonly \
-      --webroot \
-      --webroot-path=/var/www/certbot \
-      --email ${SSL_EMAIL} \
-      --agree-tos \
-      --no-eff-email \
-      --keep-until-expiring \
-      -d ${DOMAIN}
+    echo "API certificate already exists and is valid, skipping renewal"
+    echo "Certificate: /etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
   else
-    # Request new
+    echo "Requesting certificate for API domain: ${DOMAIN}"
     docker compose -f ${COMPOSE_FILE} run --rm certbot certonly \
       --webroot \
       --webroot-path=/var/www/certbot \
@@ -275,20 +267,12 @@ if [ "$SKIP_CERT_REQUEST" = false ]; then
   fi
 
   echo ""
-  echo "Requesting certificate for frontend domain: ${FRONTEND_DOMAIN}"
+  # Request Frontend certificate
   if [ "$FRONTEND_CERT_EXISTS" = true ]; then
-    # Renew existing (only if expiring in <30 days)
-    docker compose -f ${COMPOSE_FILE} run --rm certbot certonly \
-      --webroot \
-      --webroot-path=/var/www/certbot \
-      --email ${SSL_EMAIL} \
-      --agree-tos \
-      --no-eff-email \
-      --keep-until-expiring \
-      -d ${FRONTEND_DOMAIN} \
-      -d www.${FRONTEND_DOMAIN}
+    echo "Frontend certificate already exists and is valid, skipping renewal"
+    echo "Certificate: /etc/letsencrypt/live/${FRONTEND_DOMAIN}/fullchain.pem"
   else
-    # Request new
+    echo "Requesting certificate for frontend domain: ${FRONTEND_DOMAIN}"
     docker compose -f ${COMPOSE_FILE} run --rm certbot certonly \
       --webroot \
       --webroot-path=/var/www/certbot \
@@ -300,7 +284,7 @@ if [ "$SKIP_CERT_REQUEST" = false ]; then
   fi
 else
   echo ""
-  echo "[4/8] Skipped certificate request"
+  echo "[4/8] Skipped certificate request (user declined)"
 fi
 
 # Step 5: Verify certificates exist
