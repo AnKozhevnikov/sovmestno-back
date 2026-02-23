@@ -254,14 +254,14 @@ if [ "$SKIP_CERT_REQUEST" = false ]; then
   # Request API certificate
   echo "Requesting certificate for API domain: ${DOMAIN}"
   if [ "$API_CERT_EXISTS" = true ]; then
-    # Renew existing
+    # Renew existing (only if expiring in <30 days)
     docker compose -f ${COMPOSE_FILE} run --rm certbot certonly \
       --webroot \
       --webroot-path=/var/www/certbot \
       --email ${SSL_EMAIL} \
       --agree-tos \
       --no-eff-email \
-      --force-renewal \
+      --keep-until-expiring \
       -d ${DOMAIN}
   else
     # Request new
@@ -277,14 +277,14 @@ if [ "$SKIP_CERT_REQUEST" = false ]; then
   echo ""
   echo "Requesting certificate for frontend domain: ${FRONTEND_DOMAIN}"
   if [ "$FRONTEND_CERT_EXISTS" = true ]; then
-    # Renew existing
+    # Renew existing (only if expiring in <30 days)
     docker compose -f ${COMPOSE_FILE} run --rm certbot certonly \
       --webroot \
       --webroot-path=/var/www/certbot \
       --email ${SSL_EMAIL} \
       --agree-tos \
       --no-eff-email \
-      --force-renewal \
+      --keep-until-expiring \
       -d ${FRONTEND_DOMAIN} \
       -d www.${FRONTEND_DOMAIN}
   else
