@@ -183,10 +183,9 @@ services:
     volumes:
       - ./nginx/nginx.staging.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
-      - certbot_data:/var/www/certbot:ro
+      - ./nginx/certbot:/var/www/certbot:ro
       - letsencrypt_data:/etc/letsencrypt:ro
-      # Frontend static files (uncomment when frontend is ready)
-      # - /var/www/sovmestno-frontend:/var/www/sovmestno-frontend:ro
+      - /var/www/sovmestno-frontend:/var/www/sovmestno-frontend:ro
     networks:
       - sovmestno-network
     restart: unless-stopped
@@ -195,7 +194,7 @@ services:
     image: certbot/certbot:latest
     container_name: certbot
     volumes:
-      - certbot_data:/var/www/certbot
+      - ./nginx/certbot:/var/www/certbot
       - letsencrypt_data:/etc/letsencrypt
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
     restart: unless-stopped
@@ -203,7 +202,6 @@ services:
 volumes:
   postgres_data:
   minio_data:
-  certbot_data:
   letsencrypt_data:
 
 networks:
