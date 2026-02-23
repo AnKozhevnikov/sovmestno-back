@@ -72,6 +72,7 @@ jobs:
 
           # Domain and SSL
           DOMAIN=${{ secrets.STAGING_DOMAIN }}
+          FRONTEND_DOMAIN=${{ secrets.STAGING_FRONTEND_DOMAIN }}
           SSL_EMAIL=${{ secrets.STAGING_SSL_EMAIL }}
           ENVFILE
 

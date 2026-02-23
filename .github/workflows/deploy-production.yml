@@ -91,6 +91,7 @@ jobs:
 
           # Domain and SSL
           DOMAIN=${{ secrets.PROD_DOMAIN }}
+          FRONTEND_DOMAIN=${{ secrets.PROD_FRONTEND_DOMAIN }}
           SSL_EMAIL=${{ secrets.PROD_SSL_EMAIL }}
           ENVFILE
 

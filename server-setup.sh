@@ -23,8 +23,22 @@ echo -e "${GREEN}[OK]${NC} Running as root"
 # Update system
 echo "Updating system packages..."
 apt-get update
-apt-get upgrade -y
-echo -e "${GREEN}[OK]${NC} System updated"
+
+# Ask before upgrading if this is a re-run
+if [ -f "/var/lib/sovmestno-setup-done" ]; then
+  echo -e "${YELLOW}[INFO] Server setup was already run before${NC}"
+  read -p "Do you want to upgrade system packages? This may restart services. (y/N) " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    apt-get upgrade -y
+    echo -e "${GREEN}[OK]${NC} System updated"
+  else
+    echo "Skipping system upgrade"
+  fi
+else
+  apt-get upgrade -y
+  echo -e "${GREEN}[OK]${NC} System updated"
+fi
 
 # Install required packages
 echo "Installing required packages..."
@@ -109,6 +123,17 @@ else
   echo -e "${GREEN}[OK]${NC} Project directory already exists: $PROJECT_DIR"
 fi
 
+# Create frontend deployment directory
+echo "Creating frontend deployment directory..."
+FRONTEND_DIR="/var/www/sovmestno-frontend"
+if [ ! -d "$FRONTEND_DIR" ]; then
+  mkdir -p $FRONTEND_DIR
+  chown ${DEPLOY_USER}:${DEPLOY_USER} $FRONTEND_DIR
+  echo -e "${GREEN}[OK]${NC} Frontend directory created: $FRONTEND_DIR"
+else
+  echo -e "${GREEN}[OK]${NC} Frontend directory already exists: $FRONTEND_DIR"
+fi
+
 # Setup log rotation
 echo "Setting up log rotation..."
 cat > /etc/logrotate.d/sovmestno << 'EOF'
@@ -127,7 +152,13 @@ echo -e "${GREEN}[OK]${NC} Log rotation configured"
 
 # Docker optimization
 echo "Optimizing Docker..."
-cat > /etc/docker/daemon.json << 'EOF'
+DOCKER_DAEMON_JSON="/etc/docker/daemon.json"
+if [ -f "$DOCKER_DAEMON_JSON" ]; then
+  echo -e "${YELLOW}[INFO] Docker daemon.json already exists${NC}"
+  read -p "Overwrite Docker configuration? This will restart Docker. (y/N) " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    cat > $DOCKER_DAEMON_JSON << 'EOF'
 {
   "log-driver": "json-file",
   "log-opts": {
@@ -137,8 +168,28 @@ cat > /etc/docker/daemon.json << 'EOF'
   "live-restore": true
 }
 EOF
-systemctl restart docker
-echo -e "${GREEN}[OK]${NC} Docker optimized"
+    systemctl restart docker
+    echo -e "${GREEN}[OK]${NC} Docker configuration updated and restarted"
+  else
+    echo "Skipping Docker configuration"
+  fi
+else
+  cat > $DOCKER_DAEMON_JSON << 'EOF'
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  },
+  "live-restore": true
+}
+EOF
+  systemctl restart docker
+  echo -e "${GREEN}[OK]${NC} Docker optimized"
+fi
+
+# Mark setup as done
+touch /var/lib/sovmestno-setup-done
 
 # Print next steps
 echo ""

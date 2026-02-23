@@ -45,6 +45,13 @@ if [ -z "$DOMAIN" ]; then
   exit 1
 fi
 
+if [ -z "$FRONTEND_DOMAIN" ]; then
+  echo -e "${RED}[ERROR] FRONTEND_DOMAIN not set in .env file!${NC}"
+  echo "Add FRONTEND_DOMAIN to your .env file"
+  echo "Example: FRONTEND_DOMAIN=sovmestno-test.ru"
+  exit 1
+fi
+
 if [ -z "$SSL_EMAIL" ]; then
   echo -e "${RED}[ERROR] SSL_EMAIL not set in .env file!${NC}"
   exit 1
@@ -57,7 +64,8 @@ if [ -z "$ENVIRONMENT" ]; then
 fi
 
 echo -e "${GREEN}Environment: ${ENVIRONMENT}${NC}"
-echo -e "${GREEN}Domain: ${DOMAIN}${NC}"
+echo -e "${GREEN}API Domain: ${DOMAIN}${NC}"
+echo -e "${GREEN}Frontend Domain: ${FRONTEND_DOMAIN}${NC}"
 echo -e "${GREEN}Email: ${SSL_EMAIL}${NC}"
 
 # Check if domain resolves to this server
@@ -118,8 +126,9 @@ if [ ! -f "$TEMPLATE" ]; then
   exit 1
 fi
 
+
 # Step 1: Create temporary nginx config for ACME challenge
-echo "[1/7] Creating temporary nginx configuration for ACME challenge..."
+echo "[1/8] Creating temporary nginx configuration for ACME challenge..."
 
 # Remove nginx config if it's a directory (Docker creates it if file doesn't exist)
 if [ -d "$OUTPUT" ]; then
@@ -134,6 +143,7 @@ events {
 }
 
 http {
+    # API subdomain
     server {
         listen 80;
         server_name ${DOMAIN};
@@ -143,15 +153,30 @@ http {
         }
 
         location / {
-            return 200 'Server is running - waiting for SSL setup';
+            return 200 'API server is running - waiting for SSL setup';
+            add_header Content-Type text/plain;
+        }
+    }
+
+    # Frontend main domain
+    server {
+        listen 80;
+        server_name ${FRONTEND_DOMAIN} www.${FRONTEND_DOMAIN};
+
+        location /.well-known/acme-challenge/ {
+            root /var/www/certbot;
+        }
+
+        location / {
+            return 200 'Frontend server is running - waiting for SSL setup';
             add_header Content-Type text/plain;
         }
     }
 }
 EOF
 
-# Substitute DOMAIN in temp config
-envsubst '${DOMAIN}' < $TEMP_CONF > ${TEMP_CONF}.processed
+# Substitute DOMAIN and FRONTEND_DOMAIN in temp config
+envsubst '${DOMAIN} ${FRONTEND_DOMAIN}' < $TEMP_CONF > ${TEMP_CONF}.processed
 mv ${TEMP_CONF}.processed $TEMP_CONF
 
 # Backup existing config if present
@@ -168,7 +193,7 @@ echo "Temporary config created"
 
 # Step 2: Start nginx and certbot
 echo ""
-echo "[2/7] Starting nginx and certbot containers..."
+echo "[2/8] Starting nginx and certbot containers..."
 docker compose -f ${COMPOSE_FILE} up -d nginx certbot
 
 echo "Waiting for nginx to start..."
@@ -182,31 +207,53 @@ if ! docker compose -f ${COMPOSE_FILE} ps nginx | grep -q "Up"; then
 fi
 echo "Nginx is running"
 
-# Step 3: Check if certificate already exists
+# Step 3: Check if certificates already exist
 echo ""
-echo "[3/7] Checking for existing certificates..."
+echo "[3/8] Checking for existing certificates..."
+
+# Check API certificate
+API_CERT_EXISTS=false
 if docker compose -f ${COMPOSE_FILE} exec nginx test -d /etc/letsencrypt/live/${DOMAIN} 2>/dev/null; then
-  echo -e "${YELLOW}[WARNING] Certificate for ${DOMAIN} already exists${NC}"
-  read -p "Request a new certificate? This will renew the existing one. (y/N) " -n 1 -r
+  echo -e "${YELLOW}[INFO] Certificate for API domain (${DOMAIN}) already exists${NC}"
+  API_CERT_EXISTS=true
+else
+  echo "No certificate found for API domain (${DOMAIN})"
+fi
+
+# Check Frontend certificate
+FRONTEND_CERT_EXISTS=false
+if docker compose -f ${COMPOSE_FILE} exec nginx test -d /etc/letsencrypt/live/${FRONTEND_DOMAIN} 2>/dev/null; then
+  echo -e "${YELLOW}[INFO] Certificate for frontend domain (${FRONTEND_DOMAIN}) already exists${NC}"
+  FRONTEND_CERT_EXISTS=true
+else
+  echo "No certificate found for frontend domain (${FRONTEND_DOMAIN})"
+fi
+
+# Ask if user wants to proceed
+if [ "$API_CERT_EXISTS" = true ] || [ "$FRONTEND_CERT_EXISTS" = true ]; then
+  echo ""
+  read -p "Request new certificates? This will renew existing ones. (y/N) " -n 1 -r
   echo
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Skipping certificate request, using existing certificate"
+    echo "Using existing certificates"
     SKIP_CERT_REQUEST=true
   else
     SKIP_CERT_REQUEST=false
   fi
 else
-  echo "No existing certificate found"
   SKIP_CERT_REQUEST=false
 fi
 
-# Step 4: Request certificate
+# Step 4: Request certificates
 if [ "$SKIP_CERT_REQUEST" = false ]; then
   echo ""
-  echo "[4/7] Requesting SSL certificate from Let's Encrypt..."
-  echo "This may take a minute..."
+  echo "[4/8] Requesting SSL certificates from Let's Encrypt..."
+  echo "This may take a couple of minutes..."
+  echo ""
 
-  if docker compose -f ${COMPOSE_FILE} exec nginx test -d /etc/letsencrypt/live/${DOMAIN} 2>/dev/null; then
+  # Request API certificate
+  echo "Requesting certificate for API domain: ${DOMAIN}"
+  if [ "$API_CERT_EXISTS" = true ]; then
     # Renew existing
     docker compose -f ${COMPOSE_FILE} run --rm certbot certonly \
       --webroot \
@@ -226,24 +273,69 @@ if [ "$SKIP_CERT_REQUEST" = false ]; then
       --no-eff-email \
       -d ${DOMAIN}
   fi
+
+  echo ""
+  echo "Requesting certificate for frontend domain: ${FRONTEND_DOMAIN}"
+  if [ "$FRONTEND_CERT_EXISTS" = true ]; then
+    # Renew existing
+    docker compose -f ${COMPOSE_FILE} run --rm certbot certonly \
+      --webroot \
+      --webroot-path=/var/www/certbot \
+      --email ${SSL_EMAIL} \
+      --agree-tos \
+      --no-eff-email \
+      --force-renewal \
+      -d ${FRONTEND_DOMAIN} \
+      -d www.${FRONTEND_DOMAIN}
+  else
+    # Request new
+    docker compose -f ${COMPOSE_FILE} run --rm certbot certonly \
+      --webroot \
+      --webroot-path=/var/www/certbot \
+      --email ${SSL_EMAIL} \
+      --agree-tos \
+      --no-eff-email \
+      -d ${FRONTEND_DOMAIN} \
+      -d www.${FRONTEND_DOMAIN}
+  fi
 else
   echo ""
-  echo "[4/7] Skipped certificate request"
+  echo "[4/8] Skipped certificate request"
 fi
 
-# Step 5: Verify certificate exists
+# Step 5: Verify certificates exist
 echo ""
-echo "[5/7] Verifying SSL certificate..."
+echo "[5/8] Verifying SSL certificates..."
+
+# Verify API certificate
 if docker compose -f ${COMPOSE_FILE} exec nginx test -f /etc/letsencrypt/live/${DOMAIN}/fullchain.pem 2>/dev/null; then
-  echo -e "${GREEN}[OK] SSL certificate found${NC}"
+  echo -e "${GREEN}[OK] API certificate found: ${DOMAIN}${NC}"
 else
-  echo -e "${RED}[ERROR] SSL certificate not found!${NC}"
+  echo -e "${RED}[ERROR] API certificate not found!${NC}"
   echo "Certificate should be at: /etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
 
   # Restore backup if exists
-  if [ -f "${OUTPUT}.backup" ]; then
-    mv "${OUTPUT}.backup" "$OUTPUT"
-    echo "Restored previous configuration"
+  LATEST_BACKUP=$(ls -t ${OUTPUT}.backup.* 2>/dev/null | head -1)
+  if [ ! -z "$LATEST_BACKUP" ]; then
+    mv "$LATEST_BACKUP" "$OUTPUT"
+    echo "Restored previous configuration from ${LATEST_BACKUP}"
+  fi
+
+  exit 1
+fi
+
+# Verify Frontend certificate
+if docker compose -f ${COMPOSE_FILE} exec nginx test -f /etc/letsencrypt/live/${FRONTEND_DOMAIN}/fullchain.pem 2>/dev/null; then
+  echo -e "${GREEN}[OK] Frontend certificate found: ${FRONTEND_DOMAIN}${NC}"
+else
+  echo -e "${RED}[ERROR] Frontend certificate not found!${NC}"
+  echo "Certificate should be at: /etc/letsencrypt/live/${FRONTEND_DOMAIN}/fullchain.pem"
+
+  # Restore backup if exists
+  LATEST_BACKUP=$(ls -t ${OUTPUT}.backup.* 2>/dev/null | head -1)
+  if [ ! -z "$LATEST_BACKUP" ]; then
+    mv "$LATEST_BACKUP" "$OUTPUT"
+    echo "Restored previous configuration from ${LATEST_BACKUP}"
   fi
 
   exit 1
@@ -251,7 +343,7 @@ fi
 
 # Step 6: Generate final nginx config from template
 echo ""
-echo "[6/7] Generating final nginx configuration from template..."
+echo "[6/8] Generating final nginx configuration from template..."
 envsubst '${DOMAIN}' < ${TEMPLATE} > ${OUTPUT}
 echo "Generated ${OUTPUT} from ${TEMPLATE}"
 
@@ -273,9 +365,22 @@ else
   exit 1
 fi
 
-# Step 7: Reload nginx
+# Step 7: Verify frontend directory exists
 echo ""
-echo "[7/7] Reloading nginx with new configuration..."
+echo "[7/8] Verifying frontend deployment directory..."
+if [ -d /var/www/sovmestno-frontend ]; then
+  echo -e "${GREEN}[OK] Frontend directory exists: /var/www/sovmestno-frontend${NC}"
+else
+  echo -e "${YELLOW}[WARNING] Frontend directory does not exist!${NC}"
+  echo "Creating /var/www/sovmestno-frontend..."
+  mkdir -p /var/www/sovmestno-frontend
+  chown $(whoami):$(whoami) /var/www/sovmestno-frontend
+  echo -e "${GREEN}[OK] Frontend directory created${NC}"
+fi
+
+# Step 8: Reload nginx
+echo ""
+echo "[8/8] Reloading nginx with new configuration..."
 docker compose -f ${COMPOSE_FILE} exec nginx nginx -s reload
 echo "Nginx reloaded successfully"
 
@@ -290,19 +395,28 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}SSL setup complete!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
-echo "Your API is now available at:"
-echo -e "${GREEN}https://${DOMAIN}${NC}"
+echo "Your services are now available at:"
+echo -e "${GREEN}API: https://${DOMAIN}${NC}"
+echo -e "${GREEN}Frontend: https://${FRONTEND_DOMAIN}${NC}"
+echo -e "${GREEN}Frontend (www): https://www.${FRONTEND_DOMAIN}${NC}"
 echo ""
-echo "Test your API:"
+echo "Test your services:"
 echo "  curl https://${DOMAIN}/health"
+echo "  curl https://${FRONTEND_DOMAIN}"
 echo ""
 echo "Configuration details:"
 echo "  Environment: ${ENV_NAME}"
 echo "  Template: ${TEMPLATE}"
 echo "  Generated config: ${OUTPUT}"
-echo "  Domain: ${DOMAIN}"
-echo "  Certificate: /etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
+echo "  API Domain: ${DOMAIN}"
+echo "  Frontend Domain: ${FRONTEND_DOMAIN}"
+echo "  API Certificate: /etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
+echo "  Frontend Certificate: /etc/letsencrypt/live/${FRONTEND_DOMAIN}/fullchain.pem"
 echo ""
-echo "Certificate will auto-renew via certbot container"
+echo "Next steps:"
+echo "1. Set up GitHub Secrets in sovmestno-front repository"
+echo "2. Push frontend code to main branch"
+echo ""
+echo "Certificates will auto-renew via certbot container"
 echo "Certbot runs twice daily and renews certificates expiring in <30 days"
 echo ""
