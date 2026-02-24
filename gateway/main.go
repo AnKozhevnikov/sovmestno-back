@@ -14,6 +14,7 @@ import (
 	"gateway/internal/middleware"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
@@ -48,8 +49,12 @@ func main() {
 
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
+	r.Use(middleware.PrometheusMiddleware("gateway"))
 	r.Use(middleware.CORSMiddleware)
 	r.Use(middleware.AuthMiddleware)
+
+	// Prometheus metrics endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	r.GET("/health", handlers.HealthHandler)
 

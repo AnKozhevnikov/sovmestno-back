@@ -1,0 +1,51 @@
+global:
+  scrape_interval: 15s          # Опрашивать метрики каждые 15 секунд
+  evaluation_interval: 15s      # Проверять правила каждые 15 секунд
+  scrape_timeout: 10s           # Таймаут на получение метрик
+
+# Alertmanager configuration (опционально, для алертов)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+# Правила для алертов (создадим позже при необходимости)
+# rule_files:
+#   - "alerts.yml"
+
+scrape_configs:
+  # Метрики самого Prometheus
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # API Gateway - главная точка входа
+  - job_name: 'gateway'
+    static_configs:
+      - targets: ['gateway:8080']
+    metrics_path: '/metrics'
+
+  # User Service - управление пользователями
+  - job_name: 'user-service'
+    static_configs:
+      - targets: ['user-service:8081']
+    metrics_path: '/metrics'
+
+  # Event Service - управление событиями
+  - job_name: 'event-service'
+    static_configs:
+      - targets: ['event-service:8082']
+    metrics_path: '/metrics'
+
+  # Application Service - управление заявками
+  - job_name: 'application-service'
+    static_configs:
+      - targets: ['application-service:8083']
+    metrics_path: '/metrics'
+
+  # PostgreSQL - метрики базы данных
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    metrics_path: '/metrics'

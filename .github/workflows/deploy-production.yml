@@ -93,6 +93,13 @@ jobs:
           DOMAIN=${{ secrets.PROD_DOMAIN }}
           FRONTEND_DOMAIN=${{ secrets.PROD_FRONTEND_DOMAIN }}
           SSL_EMAIL=${{ secrets.PROD_SSL_EMAIL }}
+
+          # Monitoring
+          GRAFANA_ADMIN_PASSWORD=${{ secrets.PROD_GRAFANA_ADMIN_PASSWORD }}
+
+          # pgAdmin
+          PGADMIN_DEFAULT_EMAIL=${{ secrets.PROD_PGADMIN_DEFAULT_EMAIL }}
+          PGADMIN_DEFAULT_PASSWORD=${{ secrets.PROD_PGADMIN_DEFAULT_PASSWORD }}
           ENVFILE
 
           # Copy .env file to server

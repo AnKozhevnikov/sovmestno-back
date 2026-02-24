@@ -11,6 +11,7 @@ import (
 	_ "event-service/docs" // Swagger docs
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"gorm.io/driver/postgres"
@@ -46,6 +47,10 @@ func main() {
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 
 	r := gin.Default()
+
+	r.Use(middleware.PrometheusMiddleware("event-service"))
+
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "healthy"})

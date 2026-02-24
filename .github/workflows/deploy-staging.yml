@@ -74,6 +74,13 @@ jobs:
           DOMAIN=${{ secrets.STAGING_DOMAIN }}
           FRONTEND_DOMAIN=${{ secrets.STAGING_FRONTEND_DOMAIN }}
           SSL_EMAIL=${{ secrets.STAGING_SSL_EMAIL }}
+
+          # Monitoring
+          GRAFANA_ADMIN_PASSWORD=${{ secrets.STAGING_GRAFANA_ADMIN_PASSWORD }}
+
+          # pgAdmin
+          PGADMIN_DEFAULT_EMAIL=${{ secrets.STAGING_PGADMIN_DEFAULT_EMAIL }}
+          PGADMIN_DEFAULT_PASSWORD=${{ secrets.STAGING_PGADMIN_DEFAULT_PASSWORD }}
           ENVFILE
 
           # Copy .env file to server
