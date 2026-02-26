@@ -18,6 +18,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"gorm.io/driver/postgres"
@@ -73,6 +74,20 @@ func main() {
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
+	// Подключаемся к Redis
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: cfg.RedisURL,
+	})
+
+	// Проверяем подключение к Redis
+	ctx := context.Background()
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		log.Fatalf("Failed to connect to Redis: %v", err)
+	}
+	defer redisClient.Close()
+
+	log.Println("Successfully connected to Redis")
+
 	// Инициализация слоев приложения
 	userRepo := repository.NewUserRepository(db)
 	userService := service.NewUserService(userRepo, cfg)
@@ -85,7 +100,7 @@ func main() {
 
 	userHandler := handlers.NewUserHandler(userService, imageService)
 
-	authService := service.NewAuthService(userRepo, cfg)
+	authService := service.NewAuthService(userRepo, cfg, redisClient)
 	authHandler := handlers.NewAuthHandler(authService)
 
 	// Настройка роутера
@@ -114,6 +129,15 @@ func main() {
 		auth.POST("/register/venue", authHandler.RegisterVenue)
 		auth.POST("/register/admin", authHandler.RegisterAdmin)
 		auth.POST("/login", authHandler.Login)
+		auth.POST("/refresh", authHandler.RefreshToken)
+		auth.POST("/logout", authHandler.Logout)
+	}
+
+	// Protected auth routes (требуют access token)
+	authProtected := r.Group("/auth")
+	authProtected.Use(middleware.ExtractUserContext())
+	{
+		authProtected.POST("/logout-all", authHandler.LogoutAll)
 	}
 
 	// Protected routes (требуют аутентификации через X-User-ID header от gateway)

@@ -8,6 +8,7 @@ type Config struct {
 	DatabaseDSN    string
 	JWTSecret      string
 	AdminSecretKey string
+	RedisURL       string
 
 	MinioEndpoint  string
 	MinioAccessKey string
@@ -22,6 +23,7 @@ func Load() *Config {
 		DatabaseDSN:    getEnv("DB_DSN", ""),
 		JWTSecret:      getEnv("JWT_SECRET", ""),
 		AdminSecretKey: getEnv("ADMIN_SECRET_KEY", ""),
+		RedisURL:       getEnv("REDIS_URL", "redis:6379"),
 		MinioEndpoint:  getEnv("MINIO_ENDPOINT", "minio:9000"),
 		MinioAccessKey: getEnv("MINIO_ACCESS_KEY", ""),
 		MinioSecretKey: getEnv("MINIO_SECRET_KEY", ""),

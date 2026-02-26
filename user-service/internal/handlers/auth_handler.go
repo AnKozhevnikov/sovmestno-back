@@ -123,3 +123,92 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	c.JSON(200, resp)
 }
+
+// RefreshToken godoc
+// @Summary      Обновление access token
+// @Description  Получает новый access token используя refresh token
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body service.RefreshTokenRequest true "Refresh token"
+// @Success      200 {object} service.RefreshTokenResponse "Новый access token"
+// @Failure      400 {object} map[string]string "Ошибка валидации"
+// @Failure      401 {object} map[string]string "Невалидный refresh token"
+// @Router       /auth/refresh [post]
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	var input service.RefreshTokenRequest
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(400, gin.H{"error": "refresh_token is required"})
+		return
+	}
+
+	newAccessToken, err := h.authService.RefreshAccessToken(input.RefreshToken)
+	if err != nil {
+		c.JSON(401, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp := service.RefreshTokenResponse{
+		AccessToken: newAccessToken,
+		TokenType:   "Bearer",
+		ExpiresIn:   900,
+	}
+
+	c.JSON(200, resp)
+}
+
+// Logout godoc
+// @Summary      Выход из системы
+// @Description  Отзывает refresh token (logout с текущего устройства)
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body service.LogoutRequest true "Refresh token"
+// @Success      200 {object} map[string]string "Успешный выход"
+// @Failure      400 {object} map[string]string "Ошибка валидации"
+// @Router       /auth/logout [post]
+func (h *AuthHandler) Logout(c *gin.Context) {
+	var input service.LogoutRequest
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(400, gin.H{"error": "refresh_token is required"})
+		return
+	}
+
+	err := h.authService.Logout(input.RefreshToken)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Successfully logged out"})
+}
+
+// LogoutAll godoc
+// @Summary      Выход со всех устройств
+// @Description  Отзывает все refresh токены пользователя (logout со всех устройств)
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200 {object} map[string]string "Успешный выход со всех устройств"
+// @Failure      401 {object} map[string]string "Неавторизован"
+// @Failure      500 {object} map[string]string "Ошибка сервера"
+// @Router       /auth/logout-all [post]
+func (h *AuthHandler) LogoutAll(c *gin.Context) {
+	// Получить user_id из контекста (установлен middleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	err := h.authService.LogoutAll(userID.(int))
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Failed to logout from all devices"})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Successfully logged out from all devices"})
+}

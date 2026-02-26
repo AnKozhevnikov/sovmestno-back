@@ -1,25 +1,31 @@
 package service
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"time"
 	"user-service/internal/config"
 	"user-service/internal/models"
 	"user-service/internal/repository"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthService struct {
-	repo *repository.UserRepository
-	cfg  *config.Config
+	repo        *repository.UserRepository
+	cfg         *config.Config
+	redisClient *redis.Client
 }
 
-func NewAuthService(repo *repository.UserRepository, cfg *config.Config) *AuthService {
+func NewAuthService(repo *repository.UserRepository, cfg *config.Config, redisClient *redis.Client) *AuthService {
 	return &AuthService{
-		repo: repo,
-		cfg:  cfg,
+		repo:        repo,
+		cfg:         cfg,
+		redisClient: redisClient,
 	}
 }
 
@@ -69,9 +75,26 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+}
+
+type RefreshTokenResponse struct {
+	AccessToken string `json:"access_token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+	TokenType   string `json:"token_type" example:"Bearer"`
+	ExpiresIn   int    `json:"expires_in" example:"900"`
+}
+
+type LogoutRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+}
+
 type AuthResponse struct {
-	Token string       `json:"token"`
-	User  *models.User `json:"user"`
+	AccessToken  string       `json:"access_token"`
+	RefreshToken string       `json:"refresh_token"`
+	TokenType    string       `json:"token_type"`
+	ExpiresIn    int          `json:"expires_in"`
+	User         *models.User `json:"user"`
 }
 
 func (s *AuthService) RegisterCreator(req *RegisterCreatorRequest) (*AuthResponse, error) {
@@ -116,15 +139,23 @@ func (s *AuthService) RegisterCreator(req *RegisterCreatorRequest) (*AuthRespons
 		return nil, errors.New("failed to create creator profile: " + err.Error())
 	}
 
-	// Генерируем токен
-	token, err := s.generateToken(user)
+	// Генерируем токены
+	accessToken, err := s.generateAccessToken(user)
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := s.generateRefreshToken(user)
 	if err != nil {
 		return nil, err
 	}
 
 	return &AuthResponse{
-		Token: token,
-		User:  user,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		TokenType:    "Bearer",
+		ExpiresIn:    900, // 15 минут
+		User:         user,
 	}, nil
 }
 
@@ -181,15 +212,23 @@ func (s *AuthService) RegisterVenue(req *RegisterVenueRequest) (*AuthResponse, e
 		}
 	}
 
-	// Генерируем токен
-	token, err := s.generateToken(user)
+	// Генерируем токены
+	accessToken, err := s.generateAccessToken(user)
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := s.generateRefreshToken(user)
 	if err != nil {
 		return nil, err
 	}
 
 	return &AuthResponse{
-		Token: token,
-		User:  user,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		TokenType:    "Bearer",
+		ExpiresIn:    900, // 15 минут
+		User:         user,
 	}, nil
 }
 
@@ -222,15 +261,23 @@ func (s *AuthService) RegisterAdmin(req *RegisterAdminRequest) (*AuthResponse, e
 		return nil, err
 	}
 
-	// Генерируем токен
-	token, err := s.generateToken(user)
+	// Генерируем токены
+	accessToken, err := s.generateAccessToken(user)
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := s.generateRefreshToken(user)
 	if err != nil {
 		return nil, err
 	}
 
 	return &AuthResponse{
-		Token: token,
-		User:  user,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		TokenType:    "Bearer",
+		ExpiresIn:    900, // 15 минут
+		User:         user,
 	}, nil
 }
 
@@ -246,26 +293,200 @@ func (s *AuthService) Login(req *LoginRequest) (*AuthResponse, error) {
 		return nil, errors.New("invalid email or password")
 	}
 
-	// Генерируем токен
-	token, err := s.generateToken(user)
+	// Генерируем токены
+	accessToken, err := s.generateAccessToken(user)
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := s.generateRefreshToken(user)
 	if err != nil {
 		return nil, err
 	}
 
 	return &AuthResponse{
-		Token: token,
-		User:  user,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		TokenType:    "Bearer",
+		ExpiresIn:    900, // 15 минут
+		User:         user,
 	}, nil
 }
 
-func (s *AuthService) generateToken(user *models.User) (string, error) {
+// generateAccessToken создает короткий access token (15 минут)
+func (s *AuthService) generateAccessToken(user *models.User) (string, error) {
+	jti := uuid.New().String()
+
 	claims := jwt.MapClaims{
 		"user_id": user.ID,
 		"role":    user.Role,
-		"exp":     time.Now().Add(24 * time.Hour).Unix(), // Токен действует 24 часа
+		"type":    "access",
+		"jti":     jti,
+		"exp":     time.Now().Add(15 * time.Minute).Unix(), // 15 минут
 		"iat":     time.Now().Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(s.cfg.JWTSecret))
+}
+
+// generateRefreshToken создает длинный refresh token (30 дней) и сохраняет в Redis
+func (s *AuthService) generateRefreshToken(user *models.User) (string, error) {
+	jti := uuid.New().String()
+
+	claims := jwt.MapClaims{
+		"user_id": user.ID,
+		"type":    "refresh",
+		"jti":     jti,
+		"exp":     time.Now().Add(30 * 24 * time.Hour).Unix(), // 30 дней
+		"iat":     time.Now().Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(s.cfg.JWTSecret))
+	if err != nil {
+		return "", err
+	}
+
+	// Сохранить JTI в Redis whitelist
+	ctx := context.Background()
+	key := fmt.Sprintf("refresh:%s", jti)
+	ttl := 30 * 24 * time.Hour
+
+	err = s.redisClient.Set(ctx, key, user.ID, ttl).Err()
+	if err != nil {
+		return "", fmt.Errorf("failed to save refresh token to Redis: %w", err)
+	}
+
+	return tokenString, nil
+}
+
+// RefreshAccessToken обновляет access token используя refresh token
+func (s *AuthService) RefreshAccessToken(refreshTokenString string) (string, error) {
+	// 1. Распарсить refresh token
+	token, err := jwt.Parse(refreshTokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(s.cfg.JWTSecret), nil
+	})
+
+	if err != nil || !token.Valid {
+		return "", errors.New("invalid refresh token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", errors.New("invalid token claims")
+	}
+
+	// 2. Проверить тип токена
+	tokenType, _ := claims["type"].(string)
+	if tokenType != "refresh" {
+		return "", errors.New("token is not a refresh token")
+	}
+
+	// 3. Извлечь JTI и проверить в Redis whitelist
+	jti, _ := claims["jti"].(string)
+	if jti == "" {
+		return "", errors.New("token missing jti")
+	}
+
+	ctx := context.Background()
+	key := fmt.Sprintf("refresh:%s", jti)
+
+	exists := s.redisClient.Exists(ctx, key).Val()
+	if exists == 0 {
+		return "", errors.New("refresh token has been revoked or expired")
+	}
+
+	// 4. Извлечь user_id
+	userIDFloat, _ := claims["user_id"].(float64)
+	userID := int(userIDFloat)
+
+	// 5. Получить пользователя из БД
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return "", errors.New("user not found")
+	}
+
+	// 6. Сгенерировать новый access token
+	newAccessToken, err := s.generateAccessToken(user)
+	if err != nil {
+		return "", err
+	}
+
+	return newAccessToken, nil
+}
+
+// Logout отзывает refresh token
+func (s *AuthService) Logout(refreshTokenString string) error {
+	// 1. Распарсить refresh token
+	token, err := jwt.Parse(refreshTokenString, func(token *jwt.Token) (interface{}, error) {
+		return []byte(s.cfg.JWTSecret), nil
+	})
+
+	if err != nil || !token.Valid {
+		return errors.New("invalid refresh token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return errors.New("invalid token claims")
+	}
+
+	// 2. Извлечь JTI
+	jti, _ := claims["jti"].(string)
+	if jti == "" {
+		return errors.New("token missing jti")
+	}
+
+	// 3. Удалить из Redis whitelist
+	ctx := context.Background()
+	key := fmt.Sprintf("refresh:%s", jti)
+
+	err = s.redisClient.Del(ctx, key).Err()
+	if err != nil {
+		return fmt.Errorf("failed to revoke refresh token: %w", err)
+	}
+
+	return nil
+}
+
+// LogoutAll отзывает все refresh токены пользователя
+func (s *AuthService) LogoutAll(userID int) error {
+	ctx := context.Background()
+
+	// Найти все ключи refresh токенов пользователя
+	iter := s.redisClient.Scan(ctx, 0, "refresh:*", 0).Iterator()
+
+	keysToDelete := []string{}
+
+	for iter.Next(ctx) {
+		key := iter.Val()
+
+		// Проверить что это токен данного пользователя
+		storedUserID, err := s.redisClient.Get(ctx, key).Int()
+		if err != nil {
+			continue
+		}
+
+		if storedUserID == userID {
+			keysToDelete = append(keysToDelete, key)
+		}
+	}
+
+	if err := iter.Err(); err != nil {
+		return err
+	}
+
+	// Удалить все найденные ключи
+	if len(keysToDelete) > 0 {
+		err := s.redisClient.Del(ctx, keysToDelete...).Err()
+		if err != nil {
+			return fmt.Errorf("failed to revoke all tokens: %w", err)
+		}
+	}
+
+	return nil
 }

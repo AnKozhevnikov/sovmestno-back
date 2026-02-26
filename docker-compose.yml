@@ -16,6 +16,21 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   liquibase:
     image: liquibase/liquibase:4.27
     container_name: liquibase
@@ -131,6 +146,7 @@ services:
       APPLICATION_SERVICE_URL: ${APPLICATION_SERVICE_URL}
       JWT_SECRET: ${JWT_SECRET}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      API_HOST: ${API_HOST:-localhost:8080}
       GIN_MODE: ${GIN_MODE:-release}
     restart: unless-stopped
     healthcheck:
@@ -148,6 +164,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       minio:
         condition: service_healthy
       liquibase:
@@ -155,10 +173,12 @@ services:
     environment:
       PORT: ${USER_SERVICE_PORT:-8081}
       DB_DSN: ${DB_DSN}
+      REDIS_URL: ${REDIS_URL:-redis:6379}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       JWT_SECRET: ${JWT_SECRET}
+      ADMIN_SECRET_KEY: ${ADMIN_SECRET_KEY}
       GIN_MODE: ${GIN_MODE:-release}
     restart: unless-stopped
     healthcheck:
@@ -241,6 +261,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
   minio_data:
   prometheus_data:
   grafana_data:

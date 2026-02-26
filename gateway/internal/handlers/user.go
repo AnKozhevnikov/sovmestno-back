@@ -106,3 +106,119 @@ func createProxyHandler(serviceURLEnv, pathPrefix string) gin.HandlerFunc {
 		proxy.ServeHTTP(c.Writer, c.Request)
 	}
 }
+
+// RefreshTokenHandler проксирует запрос на обновление access token
+func RefreshTokenHandler(c *gin.Context) {
+	serviceURL := os.Getenv("USER_SERVICE_URL")
+	if serviceURL == "" {
+		c.JSON(503, gin.H{"error": "User service not configured"})
+		return
+	}
+
+	targetURL, err := url.Parse(serviceURL + "/auth/refresh")
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Invalid target URL"})
+		return
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+	proxy.Transport = &http.Transport{
+		ResponseHeaderTimeout: 10 * time.Second,
+		IdleConnTimeout:       30 * time.Second,
+	}
+
+	originalDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		originalDirector(req)
+		req.URL.Path = "/auth/refresh"
+	}
+
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		c.JSON(503, gin.H{
+			"error":   "Service temporarily unavailable",
+			"details": err.Error(),
+		})
+	}
+
+	proxy.ServeHTTP(c.Writer, c.Request)
+}
+
+// LogoutHandler проксирует запрос на logout
+func LogoutHandler(c *gin.Context) {
+	serviceURL := os.Getenv("USER_SERVICE_URL")
+	if serviceURL == "" {
+		c.JSON(503, gin.H{"error": "User service not configured"})
+		return
+	}
+
+	targetURL, err := url.Parse(serviceURL + "/auth/logout")
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Invalid target URL"})
+		return
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+	proxy.Transport = &http.Transport{
+		ResponseHeaderTimeout: 10 * time.Second,
+		IdleConnTimeout:       30 * time.Second,
+	}
+
+	originalDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		originalDirector(req)
+		req.URL.Path = "/auth/logout"
+	}
+
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		c.JSON(503, gin.H{
+			"error":   "Service temporarily unavailable",
+			"details": err.Error(),
+		})
+	}
+
+	proxy.ServeHTTP(c.Writer, c.Request)
+}
+
+// LogoutAllHandler проксирует запрос на logout со всех устройств
+func LogoutAllHandler(c *gin.Context) {
+	serviceURL := os.Getenv("USER_SERVICE_URL")
+	if serviceURL == "" {
+		c.JSON(503, gin.H{"error": "User service not configured"})
+		return
+	}
+
+	targetURL, err := url.Parse(serviceURL + "/auth/logout-all")
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Invalid target URL"})
+		return
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+	proxy.Transport = &http.Transport{
+		ResponseHeaderTimeout: 10 * time.Second,
+		IdleConnTimeout:       30 * time.Second,
+	}
+
+	originalDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		originalDirector(req)
+		req.URL.Path = "/auth/logout-all"
+
+		// Передаем user_id и role из контекста
+		if userID, exists := c.Get("user_id"); exists {
+			req.Header.Set("X-User-ID", strconv.Itoa(userID.(int)))
+		}
+		if role, exists := c.Get("role"); exists {
+			req.Header.Set("X-User-Role", role.(string))
+		}
+	}
+
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		c.JSON(503, gin.H{
+			"error":   "Service temporarily unavailable",
+			"details": err.Error(),
+		})
+	}
+
+	proxy.ServeHTTP(c.Writer, c.Request)
+}

@@ -97,11 +97,18 @@ func validateToken(tokenString string) (*Claims, error) {
 		return nil, errors.New("invalid token claims")
 	}
 
+	// Проверить что это access token
+	if claims.Type != "access" {
+		return nil, errors.New("invalid token type: expected access token")
+	}
+
 	return claims, nil
 }
 
 type Claims struct {
 	UserID int    `json:"user_id"`
 	Role   string `json:"role"`
+	Type   string `json:"type"` // "access" или "refresh"
+	JTI    string `json:"jti"`  // уникальный ID токена
 	jwt.RegisteredClaims
 }

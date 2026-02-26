@@ -19,6 +19,8 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	_ "gateway/docs"
+
+	"gateway/docs"
 )
 
 // @title           Совместно API Gateway
@@ -32,7 +34,7 @@ import (
 // @license.name  Apache 2.0
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
 
-// @host      api.sovmestno-test.ru
+// @host      localhost:8080
 // @BasePath  /
 
 // @securityDefinitions.apikey BearerAuth
@@ -43,6 +45,11 @@ import (
 func main() {
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
+	}
+
+	// Динамически обновляем хост для Swagger в зависимости от окружения
+	if apiHost := os.Getenv("API_HOST"); apiHost != "" {
+		docs.SwaggerInfo.Host = apiHost
 	}
 
 	r := gin.Default()
@@ -63,6 +70,13 @@ func main() {
 	r.GET("/swagger-user/*any", handlers.UserSwaggerHandler)
 	r.GET("/swagger-event/*any", handlers.EventSwaggerHandler)
 	r.GET("/swagger-application/*any", handlers.ApplicationSwaggerHandler)
+
+	// Auth routes (публичные - не требуют access token)
+	r.POST("/api/auth/refresh", handlers.RefreshTokenHandler)
+	r.POST("/api/auth/logout", handlers.LogoutHandler)
+
+	// Protected auth route (требует access token)
+	r.POST("/api/auth/logout-all", handlers.LogoutAllHandler)
 
 	r.Any("/api/user/*path", handlers.UserHandler)
 	r.Any("/api/event/*path", handlers.EventHandler)
