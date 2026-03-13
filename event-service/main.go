@@ -62,6 +62,7 @@ func main() {
 	events.Use(middleware.ExtractUserContext())
 	{
 		events.GET("", eventHandler.ListEvents)
+		events.GET("/batch", eventHandler.GetEventsByIDs)
 		events.GET("/:id", eventHandler.GetEvent)
 	}
 
@@ -71,8 +72,6 @@ func main() {
 		eventsCreator.POST("", eventHandler.CreateEvent)
 		eventsCreator.PUT("/:id", eventHandler.UpdateEvent)
 		eventsCreator.DELETE("/:id", eventHandler.DeleteEvent)
-		eventsCreator.PATCH("/:id/archive", eventHandler.ArchiveEvent)
-		eventsCreator.PATCH("/:id/publish", eventHandler.PublishEvent)
 	}
 
 	categories := r.Group("/categories")

@@ -24,7 +24,7 @@ func (r *EventRepository) GetEventByID(id int) (*models.Event, error) {
 	return &event, err
 }
 
-func (r *EventRepository) ListEvents(creatorID *int, status string, categoryID *int) ([]models.Event, error) {
+func (r *EventRepository) ListEvents(creatorID *int, categoryID *int, limit, offset int) ([]models.Event, error) {
 	var events []models.Event
 	query := r.db.Order("created_at DESC")
 
@@ -32,16 +32,18 @@ func (r *EventRepository) ListEvents(creatorID *int, status string, categoryID *
 		query = query.Where("creator_id = ?", *creatorID)
 	}
 
-	if status != "" {
-		query = query.Where("status = ?", status)
-	}
-
 	if categoryID != nil {
 		query = query.Joins("JOIN event_categories ON event_categories.event_id = events.id").
 			Where("event_categories.category_id = ?", *categoryID)
 	}
 
-	err := query.Find(&events).Error
+	err := query.Limit(limit).Offset(offset).Find(&events).Error
+	return events, err
+}
+
+func (r *EventRepository) GetEventsByIDs(ids []int) ([]models.Event, error) {
+	var events []models.Event
+	err := r.db.Where("id IN ?", ids).Find(&events).Error
 	return events, err
 }
 
@@ -90,10 +92,3 @@ func (r *EventRepository) GetEventCategories(eventID int) ([]int, error) {
 	return categoryIDs, nil
 }
 
-func (r *EventRepository) ArchiveEvent(id int) error {
-	return r.db.Model(&models.Event{}).Where("id = ?", id).Update("status", "archived").Error
-}
-
-func (r *EventRepository) PublishEvent(id int) error {
-	return r.db.Model(&models.Event{}).Where("id = ?", id).Update("status", "published").Error
-}

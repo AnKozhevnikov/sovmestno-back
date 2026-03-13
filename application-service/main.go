@@ -54,10 +54,12 @@ func main() {
 	applications.Use(middleware.ExtractUserContext())
 	{
 		applications.POST("", applicationHandler.CreateApplication)
+		applications.GET("", applicationHandler.ListApplications)
+		applications.GET("/collaborations", applicationHandler.ListCollaborations)
 		applications.GET("/:id", applicationHandler.GetApplication)
-		applications.GET("/sent", applicationHandler.ListSentApplications)
-		applications.GET("/received", applicationHandler.ListReceivedApplications)
-		applications.PATCH("/:id/status", applicationHandler.UpdateApplicationStatus)
+		applications.PATCH("/:id/accept", applicationHandler.AcceptApplication)
+		applications.PATCH("/:id/reject", applicationHandler.RejectApplication)
+		applications.PATCH("/:id/publish", applicationHandler.PublishApplication)
 		applications.DELETE("/:id", applicationHandler.DeleteApplication)
 	}
 

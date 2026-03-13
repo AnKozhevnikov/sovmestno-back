@@ -41,13 +41,13 @@ func (r *UserRepository) CreateCreator(creator *models.Creator) error {
 
 func (r *UserRepository) GetCreatorByID(id int) (*models.Creator, error) {
 	var creator models.Creator
-	err := r.db.Preload("Photo").First(&creator, id).Error
+	err := r.db.Preload("Photo").Preload("Photos.Image").First(&creator, id).Error
 	return &creator, err
 }
 
 func (r *UserRepository) GetCreatorByUserID(userID int) (*models.Creator, error) {
 	var creator models.Creator
-	err := r.db.Where("user_id = ?", userID).Preload("Photo").First(&creator).Error
+	err := r.db.Where("user_id = ?", userID).Preload("Photo").Preload("Photos.Image").First(&creator).Error
 	return &creator, err
 }
 
@@ -57,6 +57,41 @@ func (r *UserRepository) UpdateCreator(creator *models.Creator) error {
 
 func (r *UserRepository) DeleteCreator(id int) error {
 	return r.db.Delete(&models.Creator{}, id).Error
+}
+
+func (r *UserRepository) ListCreators(limit, offset int) ([]models.Creator, error) {
+	var creators []models.Creator
+	err := r.db.Limit(limit).
+		Offset(offset).
+		Preload("Photo").
+		Preload("Photos.Image").
+		Find(&creators).Error
+	return creators, err
+}
+
+// CreatorPhoto operations
+func (r *UserRepository) AddCreatorPhoto(creatorID, imageID int) (*models.CreatorPhoto, error) {
+	photo := &models.CreatorPhoto{
+		CreatorID: creatorID,
+		ImageID:   imageID,
+	}
+	if err := r.db.Create(photo).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Preload("Image").First(photo, photo.ID).Error; err != nil {
+		return nil, err
+	}
+	return photo, nil
+}
+
+func (r *UserRepository) GetCreatorPhoto(photoID int) (*models.CreatorPhoto, error) {
+	var photo models.CreatorPhoto
+	err := r.db.First(&photo, photoID).Error
+	return &photo, err
+}
+
+func (r *UserRepository) DeleteCreatorPhoto(photoID int) error {
+	return r.db.Delete(&models.CreatorPhoto{}, photoID).Error
 }
 
 // Venue operations

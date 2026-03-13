@@ -95,32 +95,33 @@ func (h *ApplicationHandler) GetApplication(c *gin.Context) {
 	c.JSON(http.StatusOK, app)
 }
 
-// ListSentApplications получает список отправленных заявок
-// @Summary List sent applications
-// @Description Get list of applications sent by current user
+// ListApplications получает список заявок текущего пользователя
+// @Summary List applications
+// @Description Get list of applications for current user with optional filters
 // @Tags applications
 // @Produce json
-// @Param status query string false "Application status (pending, accepted, rejected)"
+// @Param role query string false "User's role in application (sender, receiver, any)" default(any)
+// @Param status query string false "Application status (pending, accepted, rejected, published)"
 // @Param limit query int false "Limit" default(10)
 // @Param offset query int false "Offset" default(0)
 // @Success 200 {array} models.Application
 // @Failure 401 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Security BearerAuth
-// @Router /applications/sent [get]
-func (h *ApplicationHandler) ListSentApplications(c *gin.Context) {
+// @Router /applications [get]
+func (h *ApplicationHandler) ListApplications(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
 		return
 	}
 
+	role := c.DefaultQuery("role", "any")
 	status := c.Query("status")
-
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	apps, err := h.applicationService.ListSentApplications(userID.(int), status, limit, offset)
+	apps, err := h.applicationService.ListApplications(userID.(int), role, status, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -129,56 +130,19 @@ func (h *ApplicationHandler) ListSentApplications(c *gin.Context) {
 	c.JSON(http.StatusOK, apps)
 }
 
-// ListReceivedApplications получает список полученных заявок
-// @Summary List received applications
-// @Description Get list of applications received by current user
+// AcceptApplication принимает заявку
+// @Summary Accept application
+// @Description Accept a pending application (receiver only)
 // @Tags applications
-// @Produce json
-// @Param status query string false "Application status (pending, accepted, rejected)"
-// @Param limit query int false "Limit" default(10)
-// @Param offset query int false "Offset" default(0)
-// @Success 200 {array} models.Application
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Security BearerAuth
-// @Router /applications/received [get]
-func (h *ApplicationHandler) ListReceivedApplications(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
-		return
-	}
-
-	status := c.Query("status")
-
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
-
-	apps, err := h.applicationService.ListReceivedApplications(userID.(int), status, limit, offset)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, apps)
-}
-
-// UpdateApplicationStatus обновляет статус заявки
-// @Summary Update application status
-// @Description Accept or reject an application (receiver only)
-// @Tags applications
-// @Accept json
 // @Produce json
 // @Param id path int true "Application ID"
-// @Param status body service.UpdateApplicationStatusRequest true "Status data"
 // @Success 200 {object} models.Application
 // @Failure 400 {object} map[string]string
 // @Failure 403 {object} map[string]string
 // @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
 // @Security BearerAuth
-// @Router /applications/{id}/status [patch]
-func (h *ApplicationHandler) UpdateApplicationStatus(c *gin.Context) {
+// @Router /applications/{id}/accept [patch]
+func (h *ApplicationHandler) AcceptApplication(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid application ID"})
@@ -191,19 +155,13 @@ func (h *ApplicationHandler) UpdateApplicationStatus(c *gin.Context) {
 		return
 	}
 
-	var req service.UpdateApplicationStatusRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	app, err := h.applicationService.UpdateApplicationStatus(id, req.Status, userID.(int))
+	app, err := h.applicationService.AcceptApplication(id, userID.(int))
 	if err != nil {
-		if err.Error() == "access denied: only receiver can update application status" {
+		if err.Error() == "access denied: only receiver can accept application" {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
-		if err.Error() == "cannot update status of already processed application" {
+		if err.Error() == "cannot accept already processed application" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -212,6 +170,136 @@ func (h *ApplicationHandler) UpdateApplicationStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, app)
+}
+
+// RejectApplication отклоняет заявку
+// @Summary Reject application
+// @Description Reject a pending application (receiver only)
+// @Tags applications
+// @Produce json
+// @Param id path int true "Application ID"
+// @Success 200 {object} models.Application
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Security BearerAuth
+// @Router /applications/{id}/reject [patch]
+func (h *ApplicationHandler) RejectApplication(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid application ID"})
+		return
+	}
+
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
+		return
+	}
+
+	app, err := h.applicationService.RejectApplication(id, userID.(int))
+	if err != nil {
+		if err.Error() == "access denied: only receiver can reject application" {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		if err.Error() == "cannot reject already processed application" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusNotFound, gin.H{"error": "Application not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, app)
+}
+
+// PublishApplication подтверждает проведение мероприятия
+// @Summary Publish application (confirm collaboration)
+// @Description Mark an accepted application as published, confirming the event took place (creator only)
+// @Tags applications
+// @Produce json
+// @Param id path int true "Application ID"
+// @Success 200 {object} models.Application
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Security BearerAuth
+// @Router /applications/{id}/publish [patch]
+func (h *ApplicationHandler) PublishApplication(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid application ID"})
+		return
+	}
+
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
+		return
+	}
+
+	role, exists := c.Get("role")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User role not found"})
+		return
+	}
+
+	app, err := h.applicationService.PublishApplication(id, userID.(int), role.(string))
+	if err != nil {
+		if err.Error() == "access denied: only creators can publish applications" ||
+			err.Error() == "access denied: you are not the creator in this application" {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		if err.Error() == "can only publish accepted applications" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusNotFound, gin.H{"error": "Application not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, app)
+}
+
+// ListCollaborations возвращает список подтверждённых сотрудничеств
+// @Summary List collaborations
+// @Description Get list of published applications (confirmed collaborations). Uses user_id param for public profile view, otherwise current user.
+// @Tags applications
+// @Produce json
+// @Param user_id query int false "User ID (для просмотра публичного профиля другого пользователя)"
+// @Param limit query int false "Limit" default(10)
+// @Param offset query int false "Offset" default(0)
+// @Success 200 {array} models.Application
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /applications/collaborations [get]
+func (h *ApplicationHandler) ListCollaborations(c *gin.Context) {
+	currentUserID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
+		return
+	}
+
+	targetUserID := currentUserID.(int)
+	if userIDStr := c.Query("user_id"); userIDStr != "" {
+		if id, err := strconv.Atoi(userIDStr); err == nil {
+			targetUserID = id
+		}
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	apps, err := h.applicationService.ListCollaborations(targetUserID, limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, apps)
 }
 
 // DeleteApplication удаляет заявку

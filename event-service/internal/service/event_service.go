@@ -20,7 +20,6 @@ func (s *EventService) CreateEvent(req *CreateEventRequest, creatorID int) (*mod
 		Title:        req.Title,
 		Description:  req.Description,
 		CoverPhotoID: req.CoverPhotoID,
-		Status:       "published", // По умолчанию published
 	}
 
 	if err := s.repo.CreateEvent(event); err != nil {
@@ -52,8 +51,31 @@ func (s *EventService) GetEventByID(id int) (*models.Event, error) {
 	return event, nil
 }
 
-func (s *EventService) ListEvents(creatorID *int, status string, categoryID *int) ([]models.Event, error) {
-	events, err := s.repo.ListEvents(creatorID, status, categoryID)
+func (s *EventService) ListEvents(creatorID *int, categoryID *int, limit, offset int) ([]models.Event, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	events, err := s.repo.ListEvents(creatorID, categoryID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range events {
+		categoryIDs, err := s.repo.GetEventCategories(events[i].ID)
+		if err != nil {
+			return nil, err
+		}
+		events[i].Categories = categoryIDs
+	}
+
+	return events, nil
+}
+
+func (s *EventService) GetEventsByIDs(ids []int) ([]models.Event, error) {
+	if len(ids) == 0 {
+		return []models.Event{}, nil
+	}
+	events, err := s.repo.GetEventsByIDs(ids)
 	if err != nil {
 		return nil, err
 	}
@@ -122,31 +144,6 @@ func (s *EventService) DeleteEvent(id int, creatorID int) error {
 	return s.repo.DeleteEvent(id)
 }
 
-func (s *EventService) ArchiveEvent(id int, creatorID int) error {
-	event, err := s.repo.GetEventByID(id)
-	if err != nil {
-		return err
-	}
-
-	if event.CreatorID != creatorID {
-		return fmt.Errorf("access denied: you are not the creator of this event")
-	}
-
-	return s.repo.ArchiveEvent(id)
-}
-
-func (s *EventService) PublishEvent(id int, creatorID int) error {
-	event, err := s.repo.GetEventByID(id)
-	if err != nil {
-		return err
-	}
-
-	if event.CreatorID != creatorID {
-		return fmt.Errorf("access denied: you are not the creator of this event")
-	}
-
-	return s.repo.PublishEvent(id)
-}
 
 type CreateEventRequest struct {
 	Title        string `json:"title" binding:"required"`

@@ -8,10 +8,9 @@ type Event struct {
 	Title        string    `gorm:"not null" json:"title"`
 	Description  string    `json:"description,omitempty"`
 	CoverPhotoID *int      `json:"cover_photo_id,omitempty"`
-	Status       string    `gorm:"default:published" json:"status"` // published, archived
 	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"updated_at"`
-	Categories   []int     `gorm:"-" json:"category_ids,omitempty"` // Только для передачи данных
+	Categories   []int     `gorm:"-" json:"category_ids,omitempty"`
 }
 
 func (Event) TableName() string { return "events" }

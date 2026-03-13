@@ -183,6 +183,39 @@ func (s *UserService) DeleteCreator(id, userID int) error {
 	return s.repo.DeleteCreator(id)
 }
 
+func (s *UserService) ListCreators(limit, offset int) ([]models.Creator, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	return s.repo.ListCreators(limit, offset)
+}
+
+func (s *UserService) AddCreatorPhoto(userID, imageID int) (*models.CreatorPhoto, error) {
+	creator, err := s.repo.GetCreatorByUserID(userID)
+	if err != nil {
+		return nil, errors.New("creator profile not found")
+	}
+	return s.repo.AddCreatorPhoto(creator.ID, imageID)
+}
+
+func (s *UserService) DeleteCreatorPhoto(userID, photoID int) error {
+	creator, err := s.repo.GetCreatorByUserID(userID)
+	if err != nil {
+		return errors.New("creator profile not found")
+	}
+
+	photo, err := s.repo.GetCreatorPhoto(photoID)
+	if err != nil {
+		return errors.New("photo not found")
+	}
+
+	if photo.CreatorID != creator.ID {
+		return errors.New("forbidden: not your photo")
+	}
+
+	return s.repo.DeleteCreatorPhoto(photoID)
+}
+
 func (s *UserService) DeleteCreatorByUserID(targetUserID, currentUserID int) error {
 	// Проверяем права доступа
 	if targetUserID != currentUserID {

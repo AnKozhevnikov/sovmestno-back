@@ -37,8 +37,18 @@ type Creator struct {
 	UpdatedAt   time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 
 	// Связи
-	User  User   `gorm:"foreignKey:UserID" json:"-"`
-	Photo *Image `gorm:"foreignKey:PhotoID" json:"photo,omitempty"`
+	User   User           `gorm:"foreignKey:UserID" json:"-"`
+	Photo  *Image         `gorm:"foreignKey:PhotoID" json:"photo,omitempty"`
+	Photos []CreatorPhoto `gorm:"foreignKey:CreatorID" json:"photos,omitempty"`
+}
+
+// CreatorPhoto - фотографии с проведенных мероприятий создателя
+type CreatorPhoto struct {
+	ID        int `gorm:"primaryKey;autoIncrement" json:"id"`
+	CreatorID int `gorm:"not null" json:"creator_id"`
+	ImageID   int `gorm:"not null" json:"image_id"`
+
+	Image Image `gorm:"foreignKey:ImageID" json:"image"`
 }
 
 // Venue - профиль площадки
@@ -93,7 +103,7 @@ type Image struct {
 	FileName   string    `gorm:"not null" json:"file_name"`
 	FilePath   string    `gorm:"not null" json:"file_path"`
 	FileType   string    `json:"file_type,omitempty"`
-	ImageType  string    `gorm:"not null" json:"image_type"` // avatar, venue-logo, venue-cover, venue-photo, event-cover
+	ImageType  string    `gorm:"not null" json:"image_type"` // avatar, venue-logo, venue-cover, venue-photo, creator-photo, event-cover
 	BucketName string    `gorm:"not null" json:"bucket_name"`
 	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
@@ -101,6 +111,7 @@ type Image struct {
 // TableName overrides
 func (User) TableName() string          { return "users" }
 func (Creator) TableName() string       { return "creators" }
+func (CreatorPhoto) TableName() string  { return "creator_photos" }
 func (Venue) TableName() string         { return "venues" }
 func (VenuePhoto) TableName() string    { return "venue_photos" }
 func (VenueCategory) TableName() string { return "venue_categories" }

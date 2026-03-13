@@ -8,9 +8,9 @@ type Application struct {
 	SenderType   string    `gorm:"not null" json:"sender_type"`   // creator, venue
 	ReceiverID   int       `gorm:"not null" json:"receiver_id"`
 	ReceiverType string    `gorm:"not null" json:"receiver_type"` // creator, venue
-	EventID      *int      `json:"event_id,omitempty"`
+	EventID      int       `gorm:"not null" json:"event_id"`
 	Message      string    `json:"message,omitempty"`
-	Status       string    `gorm:"default:pending" json:"status"` // pending, accepted, rejected
+	Status       string    `gorm:"default:pending" json:"status"` // pending, accepted, rejected, published
 	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }

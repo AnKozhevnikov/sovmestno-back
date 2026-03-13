@@ -182,6 +182,34 @@ func (h *UserHandler) DeleteCreator(c *gin.Context) {
 	c.JSON(204, nil)
 }
 
+// ListCreators godoc
+// @Summary      Список создателей
+// @Description  Возвращает список создателей мероприятий с пагинацией
+// @Tags         creators
+// @Produce      json
+// @Security     BearerAuth
+// @Param        limit query int false "Количество элементов (по умолчанию 20, максимум 100)"
+// @Param        offset query int false "Смещение (по умолчанию 0)"
+// @Success      200 {object} map[string]interface{} "Список создателей"
+// @Failure      500 {object} map[string]string "Ошибка сервера"
+// @Router       /users/creators [get]
+func (h *UserHandler) ListCreators(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	creators, err := h.userService.ListCreators(limit, offset)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch creators"})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"creators": creators,
+		"limit":    limit,
+		"offset":   offset,
+	})
+}
+
 // Venue handlers
 
 // CreateVenue godoc
@@ -345,6 +373,88 @@ func (h *UserHandler) DeleteVenue(c *gin.Context) {
 	c.JSON(204, nil)
 }
 
+// AddCreatorPhoto godoc
+// @Summary      Добавить фото создателя
+// @Description  Привязывает загруженное изображение к галерее создателя
+// @Tags         creators
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body map[string]int true "ID изображения" example({"image_id": 1})
+// @Success      201 {object} models.CreatorPhoto "Фото добавлено"
+// @Failure      400 {object} map[string]string "Ошибка валидации"
+// @Failure      401 {object} map[string]string "Не авторизован"
+// @Failure      404 {object} map[string]string "Профиль создателя не найден"
+// @Router       /users/creators/photos [post]
+func (h *UserHandler) AddCreatorPhoto(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var req struct {
+		ImageID int `json:"image_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	photo, err := h.userService.AddCreatorPhoto(userID, req.ImageID)
+	if err != nil {
+		if err.Error() == "creator profile not found" {
+			c.JSON(404, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(201, photo)
+}
+
+// DeleteCreatorPhoto godoc
+// @Summary      Удалить фото создателя
+// @Description  Удаляет фото из галереи создателя (только своё фото)
+// @Tags         creators
+// @Security     BearerAuth
+// @Param        photo_id path int true "ID записи фото"
+// @Success      204 "Фото удалено"
+// @Failure      400 {object} map[string]string "Некорректный ID"
+// @Failure      401 {object} map[string]string "Не авторизован"
+// @Failure      403 {object} map[string]string "Нет доступа"
+// @Failure      404 {object} map[string]string "Фото не найдено"
+// @Router       /users/creators/photos/{photo_id} [delete]
+func (h *UserHandler) DeleteCreatorPhoto(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	photoID, err := strconv.Atoi(c.Param("photo_id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "Invalid photo ID"})
+		return
+	}
+
+	if err := h.userService.DeleteCreatorPhoto(userID, photoID); err != nil {
+		if err.Error() == "forbidden: not your photo" {
+			c.JSON(403, gin.H{"error": err.Error()})
+			return
+		}
+		if err.Error() == "photo not found" || err.Error() == "creator profile not found" {
+			c.JSON(404, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(204)
+}
+
 // UploadImage godoc
 // @Summary      Загрузить изображение
 // @Description  Загружает изображение в MinIO и возвращает метаданные
@@ -353,7 +463,7 @@ func (h *UserHandler) DeleteVenue(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        file formData file true "Файл изображения (jpg, jpeg, png, gif, webp, максимум 10MB)"
-// @Param        type formData string true "Тип изображения" Enums(avatar, venue-logo, venue-cover, venue-photo, event-cover)
+// @Param        type formData string true "Тип изображения" Enums(avatar, venue-logo, venue-cover, venue-photo, creator-photo, event-cover)
 // @Success      201 {object} models.Image "Изображение загружено"
 // @Failure      400 {object} map[string]string "Ошибка валидации"
 // @Failure      401 {object} map[string]string "Не авторизован"

@@ -148,9 +148,12 @@ func main() {
 		users.GET("/me", userHandler.GetMe)
 
 		// Профили создателей (creators) - создаются через /auth/register/creator
+		users.GET("/creators", userHandler.ListCreators)
 		users.GET("/creators/:user_id", userHandler.GetCreator)
 		users.PUT("/creators/:user_id", userHandler.UpdateCreator)
 		users.DELETE("/creators/:user_id", userHandler.DeleteCreator)
+		users.POST("/creators/photos", userHandler.AddCreatorPhoto)
+		users.DELETE("/creators/photos/:photo_id", userHandler.DeleteCreatorPhoto)
 
 		// Профили площадок (venues) - создаются через /auth/register/venue
 		users.GET("/venues/:user_id", userHandler.GetVenue)
