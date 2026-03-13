@@ -156,10 +156,12 @@ func main() {
 		users.DELETE("/creators/photos/:photo_id", userHandler.DeleteCreatorPhoto)
 
 		// Профили площадок (venues) - создаются через /auth/register/venue
-		users.GET("/venues/:user_id", userHandler.GetVenue)
 		users.GET("/venues", userHandler.ListVenues)
+		users.GET("/venues/:user_id", userHandler.GetVenue)
 		users.PUT("/venues/:user_id", userHandler.UpdateVenue)
 		users.DELETE("/venues/:user_id", userHandler.DeleteVenue)
+		users.POST("/venues/photos", userHandler.AddVenuePhoto)
+		users.DELETE("/venues/photos/:photo_id", userHandler.DeleteVenuePhoto)
 
 		// Загрузка изображений
 		users.POST("/upload", userHandler.UploadImage)

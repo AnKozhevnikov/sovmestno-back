@@ -94,6 +94,31 @@ func (r *UserRepository) DeleteCreatorPhoto(photoID int) error {
 	return r.db.Delete(&models.CreatorPhoto{}, photoID).Error
 }
 
+// VenuePhoto operations
+func (r *UserRepository) AddVenuePhoto(venueID, imageID int) (*models.VenuePhoto, error) {
+	photo := &models.VenuePhoto{
+		VenueID: venueID,
+		ImageID: imageID,
+	}
+	if err := r.db.Create(photo).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Preload("Image").First(photo, photo.ID).Error; err != nil {
+		return nil, err
+	}
+	return photo, nil
+}
+
+func (r *UserRepository) GetVenuePhoto(photoID int) (*models.VenuePhoto, error) {
+	var photo models.VenuePhoto
+	err := r.db.First(&photo, photoID).Error
+	return &photo, err
+}
+
+func (r *UserRepository) DeleteVenuePhoto(photoID int) error {
+	return r.db.Delete(&models.VenuePhoto{}, photoID).Error
+}
+
 // Venue operations
 func (r *UserRepository) CreateVenue(venue *models.Venue) error {
 	return r.db.Create(venue).Error

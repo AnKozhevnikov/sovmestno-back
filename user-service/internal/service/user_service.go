@@ -481,6 +481,32 @@ func (s *UserService) DeleteVenue(id, userID int) error {
 	return s.repo.DeleteVenue(id)
 }
 
+func (s *UserService) AddVenuePhoto(userID, imageID int) (*models.VenuePhoto, error) {
+	venue, err := s.repo.GetVenueByUserID(userID)
+	if err != nil {
+		return nil, errors.New("venue profile not found")
+	}
+	return s.repo.AddVenuePhoto(venue.ID, imageID)
+}
+
+func (s *UserService) DeleteVenuePhoto(userID, photoID int) error {
+	venue, err := s.repo.GetVenueByUserID(userID)
+	if err != nil {
+		return errors.New("venue profile not found")
+	}
+
+	photo, err := s.repo.GetVenuePhoto(photoID)
+	if err != nil {
+		return errors.New("photo not found")
+	}
+
+	if photo.VenueID != venue.ID {
+		return errors.New("forbidden: not your photo")
+	}
+
+	return s.repo.DeleteVenuePhoto(photoID)
+}
+
 func (s *UserService) DeleteVenueByUserID(targetUserID, currentUserID int) error {
 	// Проверяем права доступа
 	if targetUserID != currentUserID {

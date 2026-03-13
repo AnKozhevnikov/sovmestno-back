@@ -455,6 +455,88 @@ func (h *UserHandler) DeleteCreatorPhoto(c *gin.Context) {
 	c.Status(204)
 }
 
+// AddVenuePhoto godoc
+// @Summary      Добавить фото площадки
+// @Description  Привязывает загруженное изображение к галерее площадки
+// @Tags         venues
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body map[string]int true "ID изображения" example({"image_id": 1})
+// @Success      201 {object} models.VenuePhoto "Фото добавлено"
+// @Failure      400 {object} map[string]string "Ошибка валидации"
+// @Failure      401 {object} map[string]string "Не авторизован"
+// @Failure      404 {object} map[string]string "Профиль площадки не найден"
+// @Router       /users/venues/photos [post]
+func (h *UserHandler) AddVenuePhoto(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var req struct {
+		ImageID int `json:"image_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	photo, err := h.userService.AddVenuePhoto(userID, req.ImageID)
+	if err != nil {
+		if err.Error() == "venue profile not found" {
+			c.JSON(404, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(201, photo)
+}
+
+// DeleteVenuePhoto godoc
+// @Summary      Удалить фото площадки
+// @Description  Удаляет фото из галереи площадки (только своё фото)
+// @Tags         venues
+// @Security     BearerAuth
+// @Param        photo_id path int true "ID записи фото"
+// @Success      204 "Фото удалено"
+// @Failure      400 {object} map[string]string "Некорректный ID"
+// @Failure      401 {object} map[string]string "Не авторизован"
+// @Failure      403 {object} map[string]string "Нет доступа"
+// @Failure      404 {object} map[string]string "Фото не найдено"
+// @Router       /users/venues/photos/{photo_id} [delete]
+func (h *UserHandler) DeleteVenuePhoto(c *gin.Context) {
+	userID, ok := middleware.GetUserID(c)
+	if !ok {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	photoID, err := strconv.Atoi(c.Param("photo_id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "Invalid photo ID"})
+		return
+	}
+
+	if err := h.userService.DeleteVenuePhoto(userID, photoID); err != nil {
+		if err.Error() == "forbidden: not your photo" {
+			c.JSON(403, gin.H{"error": err.Error()})
+			return
+		}
+		if err.Error() == "photo not found" || err.Error() == "venue profile not found" {
+			c.JSON(404, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(204)
+}
+
 // UploadImage godoc
 // @Summary      Загрузить изображение
 // @Description  Загружает изображение в MinIO и возвращает метаданные
