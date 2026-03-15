@@ -101,7 +101,7 @@ func (h *ApplicationHandler) GetApplication(c *gin.Context) {
 // @Tags applications
 // @Produce json
 // @Param role query string false "User's role in application (sender, receiver, any)" default(any)
-// @Param status query string false "Application status (pending, accepted, rejected, published)"
+// @Param status query string false "Application status (pending, accepted, rejected)"
 // @Param limit query int false "Limit" default(10)
 // @Param offset query int false "Offset" default(0)
 // @Success 200 {array} models.Application
@@ -132,7 +132,7 @@ func (h *ApplicationHandler) ListApplications(c *gin.Context) {
 
 // AcceptApplication принимает заявку
 // @Summary Accept application
-// @Description Accept a pending application (receiver only)
+// @Description Accept a pending application (receiver only). Sets event status to booked.
 // @Tags applications
 // @Produce json
 // @Param id path int true "Application ID"
@@ -212,94 +212,6 @@ func (h *ApplicationHandler) RejectApplication(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, app)
-}
-
-// PublishApplication подтверждает проведение мероприятия
-// @Summary Publish application (confirm collaboration)
-// @Description Mark an accepted application as published, confirming the event took place (creator only)
-// @Tags applications
-// @Produce json
-// @Param id path int true "Application ID"
-// @Success 200 {object} models.Application
-// @Failure 400 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Security BearerAuth
-// @Router /applications/{id}/publish [patch]
-func (h *ApplicationHandler) PublishApplication(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid application ID"})
-		return
-	}
-
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
-		return
-	}
-
-	role, exists := c.Get("role")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User role not found"})
-		return
-	}
-
-	app, err := h.applicationService.PublishApplication(id, userID.(int), role.(string))
-	if err != nil {
-		if err.Error() == "access denied: only creators can publish applications" ||
-			err.Error() == "access denied: you are not the creator in this application" {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		if err.Error() == "can only publish accepted applications" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusNotFound, gin.H{"error": "Application not found"})
-		return
-	}
-
-	c.JSON(http.StatusOK, app)
-}
-
-// ListCollaborations возвращает список подтверждённых сотрудничеств
-// @Summary List collaborations
-// @Description Get list of published applications (confirmed collaborations). Uses user_id param for public profile view, otherwise current user.
-// @Tags applications
-// @Produce json
-// @Param user_id query int false "User ID (для просмотра публичного профиля другого пользователя)"
-// @Param limit query int false "Limit" default(10)
-// @Param offset query int false "Offset" default(0)
-// @Success 200 {array} models.Application
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Security BearerAuth
-// @Router /applications/collaborations [get]
-func (h *ApplicationHandler) ListCollaborations(c *gin.Context) {
-	currentUserID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
-		return
-	}
-
-	targetUserID := currentUserID.(int)
-	if userIDStr := c.Query("user_id"); userIDStr != "" {
-		if id, err := strconv.Atoi(userIDStr); err == nil {
-			targetUserID = id
-		}
-	}
-
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
-
-	apps, err := h.applicationService.ListCollaborations(targetUserID, limit, offset)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, apps)
 }
 
 // DeleteApplication удаляет заявку

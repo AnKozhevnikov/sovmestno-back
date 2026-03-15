@@ -37,6 +37,7 @@ func main() {
 	applicationRepo := repository.NewApplicationRepository(db)
 	applicationService := service.NewApplicationService(applicationRepo)
 	applicationHandler := handlers.NewApplicationHandler(applicationService)
+	collaborationHandler := handlers.NewCollaborationHandler(applicationService)
 
 	r := gin.Default()
 
@@ -55,12 +56,20 @@ func main() {
 	{
 		applications.POST("", applicationHandler.CreateApplication)
 		applications.GET("", applicationHandler.ListApplications)
-		applications.GET("/collaborations", applicationHandler.ListCollaborations)
 		applications.GET("/:id", applicationHandler.GetApplication)
 		applications.PATCH("/:id/accept", applicationHandler.AcceptApplication)
 		applications.PATCH("/:id/reject", applicationHandler.RejectApplication)
-		applications.PATCH("/:id/publish", applicationHandler.PublishApplication)
 		applications.DELETE("/:id", applicationHandler.DeleteApplication)
+	}
+
+	collaborations := r.Group("/collaborations")
+	collaborations.Use(middleware.ExtractUserContext())
+	{
+		collaborations.GET("", collaborationHandler.ListCollaborations)
+		collaborations.GET("/partners", collaborationHandler.ListCollaborationPartners)
+		collaborations.GET("/:id", collaborationHandler.GetCollaboration)
+		collaborations.PATCH("/:id/complete", collaborationHandler.CompleteCollaboration)
+		collaborations.PATCH("/:id/cancel", collaborationHandler.CancelCollaboration)
 	}
 
 	log.Printf("Application Service starting on port %s", cfg.ServerPort)

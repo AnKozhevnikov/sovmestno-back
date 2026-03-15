@@ -81,11 +81,12 @@ func (h *EventHandler) GetEvent(c *gin.Context) {
 
 // ListEvents получает список мероприятий
 // @Summary List events
-// @Description Get list of events with filtering by creator_id and category_id
+// @Description Get list of events with filtering by creator_id, category_id and status
 // @Tags events
 // @Produce json
 // @Param creator_id query int false "Creator ID"
 // @Param category_id query int false "Filter by category"
+// @Param status query string false "Event status (active, booked, completed). Default: active"
 // @Param limit query int false "Количество элементов (по умолчанию 20, максимум 100)"
 // @Param offset query int false "Смещение (по умолчанию 0)"
 // @Success 200 {object} map[string]interface{}
@@ -109,10 +110,12 @@ func (h *EventHandler) ListEvents(c *gin.Context) {
 		}
 	}
 
+	status := c.DefaultQuery("status", "active")
+
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	events, err := h.eventService.ListEvents(creatorID, categoryID, limit, offset)
+	events, err := h.eventService.ListEvents(creatorID, categoryID, status, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

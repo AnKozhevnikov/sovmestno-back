@@ -24,7 +24,7 @@ func (r *EventRepository) GetEventByID(id int) (*models.Event, error) {
 	return &event, err
 }
 
-func (r *EventRepository) ListEvents(creatorID *int, categoryID *int, limit, offset int) ([]models.Event, error) {
+func (r *EventRepository) ListEvents(creatorID *int, categoryID *int, status string, limit, offset int) ([]models.Event, error) {
 	var events []models.Event
 	query := r.db.Order("created_at DESC")
 
@@ -35,6 +35,10 @@ func (r *EventRepository) ListEvents(creatorID *int, categoryID *int, limit, off
 	if categoryID != nil {
 		query = query.Joins("JOIN event_categories ON event_categories.event_id = events.id").
 			Where("event_categories.category_id = ?", *categoryID)
+	}
+
+	if status != "" {
+		query = query.Where("status = ?", status)
 	}
 
 	err := query.Limit(limit).Offset(offset).Find(&events).Error

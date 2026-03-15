@@ -21,7 +21,6 @@ type CreateApplicationRequest struct {
 	Message      string `json:"message,omitempty"`
 }
 
-
 func (s *ApplicationService) CreateApplication(req *CreateApplicationRequest, senderID int, senderType string) (*models.Application, error) {
 	if senderID == req.ReceiverID && senderType == req.ReceiverType {
 		return nil, errors.New("cannot send application to yourself")
@@ -83,7 +82,30 @@ func (s *ApplicationService) AcceptApplication(id int, userID int) (*models.Appl
 	}
 
 	app.Status = "accepted"
-	if err := s.repo.UpdateApplication(app); err != nil {
+
+	var venueUserID int
+	if app.SenderType == "venue" {
+		venueUserID = app.SenderID
+	} else {
+		venueUserID = app.ReceiverID
+	}
+
+	var creatorUserID int
+	if app.SenderType == "creator" {
+		creatorUserID = app.SenderID
+	} else {
+		creatorUserID = app.ReceiverID
+	}
+
+	collab := &models.Collaboration{
+		ApplicationID: app.ID,
+		EventID:       app.EventID,
+		CreatorUserID: creatorUserID,
+		VenueUserID:   venueUserID,
+		Status:        "pending",
+	}
+
+	if err := s.repo.AcceptApplicationTx(app, collab); err != nil {
 		return nil, err
 	}
 
@@ -112,36 +134,73 @@ func (s *ApplicationService) RejectApplication(id int, userID int) (*models.Appl
 	return app, nil
 }
 
-func (s *ApplicationService) PublishApplication(id int, userID int, userRole string) (*models.Application, error) {
-	if userRole != "creator" {
-		return nil, errors.New("access denied: only creators can publish applications")
-	}
-
-	app, err := s.repo.GetApplicationByID(id)
+func (s *ApplicationService) GetCollaborationByID(id int, userID int) (*models.Collaboration, error) {
+	collab, err := s.repo.GetCollaborationByID(id)
 	if err != nil {
 		return nil, err
 	}
 
-	// Проверяем, что creator является участником этой заявки
-	creatorInvolved := (app.SenderID == userID && app.SenderType == "creator") ||
-		(app.ReceiverID == userID && app.ReceiverType == "creator")
-	if !creatorInvolved {
-		return nil, errors.New("access denied: you are not the creator in this application")
+	if collab.CreatorUserID != userID && collab.VenueUserID != userID {
+		return nil, errors.New("access denied: you are not involved in this collaboration")
 	}
 
-	if app.Status != "accepted" {
-		return nil, errors.New("can only publish accepted applications")
+	return collab, nil
+}
+
+// CompleteCollaboration — creator подтверждает, что мероприятие состоялось.
+func (s *ApplicationService) CompleteCollaboration(id int, userID int, userRole string) (*models.Collaboration, error) {
+	if userRole != "creator" {
+		return nil, errors.New("access denied: only creators can complete collaborations")
 	}
 
-	app.Status = "published"
-	if err := s.repo.UpdateApplication(app); err != nil {
+	collab, err := s.repo.GetCollaborationByID(id)
+	if err != nil {
 		return nil, err
 	}
 
-	return app, nil
+	if collab.CreatorUserID != userID {
+		return nil, errors.New("access denied: you are not the creator in this collaboration")
+	}
+
+	if collab.Status != "pending" {
+		return nil, errors.New("can only complete pending collaborations")
+	}
+
+	if err := s.repo.CompleteCollaborationTx(collab.ID, collab.EventID); err != nil {
+		return nil, err
+	}
+
+	collab.Status = "completed"
+	return collab, nil
 }
 
-func (s *ApplicationService) ListCollaborations(userID int, limit, offset int) ([]models.Application, error) {
+// CancelCollaboration — creator сообщает, что мероприятие не состоялось.
+func (s *ApplicationService) CancelCollaboration(id int, userID int, userRole string) error {
+	if userRole != "creator" {
+		return errors.New("access denied: only creators can cancel collaborations")
+	}
+
+	collab, err := s.repo.GetCollaborationByID(id)
+	if err != nil {
+		return err
+	}
+
+	if collab.CreatorUserID != userID {
+		return errors.New("access denied: you are not the creator in this collaboration")
+	}
+
+	if collab.Status != "pending" {
+		return errors.New("can only cancel pending collaborations")
+	}
+
+	return s.repo.CancelCollaborationTx(collab.ID, collab.EventID)
+}
+
+func (s *ApplicationService) ListCollaborationPartners(userID int) ([]int, error) {
+	return s.repo.ListCollaborationPartners(userID)
+}
+
+func (s *ApplicationService) ListCollaborations(userID int, status string, limit, offset int) ([]models.Collaboration, error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -149,7 +208,7 @@ func (s *ApplicationService) ListCollaborations(userID int, limit, offset int) (
 		limit = 100
 	}
 
-	return s.repo.ListCollaborations(userID, limit, offset)
+	return s.repo.ListCollaborations(userID, status, limit, offset)
 }
 
 func (s *ApplicationService) DeleteApplication(id int, userID int) error {
