@@ -81,12 +81,13 @@ func (h *EventHandler) GetEvent(c *gin.Context) {
 
 // ListEvents получает список мероприятий
 // @Summary List events
-// @Description Get list of events with filtering by creator_id, category_id and status
+// @Description Get list of events. Catalog: default is_active=true. Creator profile completed: is_completed=true.
 // @Tags events
 // @Produce json
 // @Param creator_id query int false "Creator ID"
 // @Param category_id query int false "Filter by category"
-// @Param status query string false "Event status (active, booked, completed). Default: active"
+// @Param is_active query bool false "Filter by is_active (default: true)"
+// @Param is_completed query bool false "Filter by is_completed"
 // @Param limit query int false "Количество элементов (по умолчанию 20, максимум 100)"
 // @Param offset query int false "Смещение (по умолчанию 0)"
 // @Success 200 {object} map[string]interface{}
@@ -110,12 +111,26 @@ func (h *EventHandler) ListEvents(c *gin.Context) {
 		}
 	}
 
-	status := c.DefaultQuery("status", "active")
+	var isCompleted *bool
+	if isCompletedStr := c.Query("is_completed"); isCompletedStr != "" {
+		val := isCompletedStr == "true"
+		isCompleted = &val
+	}
+
+	var isActive *bool
+	if isActiveStr := c.Query("is_active"); isActiveStr != "" {
+		val := isActiveStr == "true"
+		isActive = &val
+	} else if isCompleted == nil {
+		// дефолт is_active=true только если is_completed не задан
+		val := true
+		isActive = &val
+	}
 
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	events, err := h.eventService.ListEvents(creatorID, categoryID, status, limit, offset)
+	events, err := h.eventService.ListEvents(creatorID, categoryID, isActive, isCompleted, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -221,6 +236,42 @@ func (h *EventHandler) UpdateEvent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, event)
+}
+
+// PublishEvent возвращает мероприятие в каталог
+// @Summary Publish event
+// @Description Return event to catalog by setting is_active=true (creator only)
+// @Tags events
+// @Param id path int true "Event ID"
+// @Success 204
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /events/{id}/publish [patch]
+func (h *EventHandler) PublishEvent(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event ID"})
+		return
+	}
+
+	creatorID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
+		return
+	}
+
+	if err := h.eventService.PublishEvent(id, creatorID.(int)); err != nil {
+		if err.Error() == "event not found or access denied" {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 // DeleteEvent удаляет мероприятие

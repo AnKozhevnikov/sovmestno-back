@@ -51,11 +51,11 @@ func (s *EventService) GetEventByID(id int) (*models.Event, error) {
 	return event, nil
 }
 
-func (s *EventService) ListEvents(creatorID *int, categoryID *int, status string, limit, offset int) ([]models.Event, error) {
+func (s *EventService) ListEvents(creatorID *int, categoryID *int, isActive *bool, isCompleted *bool, limit, offset int) ([]models.Event, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
-	events, err := s.repo.ListEvents(creatorID, categoryID, status, limit, offset)
+	events, err := s.repo.ListEvents(creatorID, categoryID, isActive, isCompleted, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -129,6 +129,10 @@ func (s *EventService) UpdateEvent(id int, req *UpdateEventRequest, creatorID in
 	}
 
 	return event, nil
+}
+
+func (s *EventService) PublishEvent(id int, creatorID int) error {
+	return s.repo.PublishEvent(id, creatorID)
 }
 
 func (s *EventService) DeleteEvent(id int, creatorID int) error {

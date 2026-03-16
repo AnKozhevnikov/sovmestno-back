@@ -7,11 +7,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// Event — локальная структура для обновления статуса события напрямую в общей БД
+// Event — локальная структура для обновления флагов события напрямую в общей БД
 type Event struct {
-	ID        int       `gorm:"primaryKey"`
-	Status    string    `gorm:"column:status"`
-	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime"`
+	ID          int       `gorm:"primaryKey"`
+	IsActive    bool      `gorm:"column:is_active"`
+	IsCompleted bool      `gorm:"column:is_completed"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
 }
 
 func (Event) TableName() string { return "events" }
@@ -67,67 +68,32 @@ func (r *ApplicationRepository) DeleteApplication(id int) error {
 	return r.db.Delete(&models.Application{}, id).Error
 }
 
-// AcceptApplicationTx атомарно принимает заявку и создаёт коллаборацию.
-// Если событие active — переводит в booked. Если уже booked/completed — оставляет как есть.
+// AcceptApplicationTx атомарно принимает заявку, снимает событие с каталога и создаёт коллаборацию.
 func (r *ApplicationRepository) AcceptApplicationTx(app *models.Application, collab *models.Collaboration) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		var currentEventStatus string
-		if err := tx.Model(&Event{}).Select("status").Where("id = ?", app.EventID).Scan(&currentEventStatus).Error; err != nil {
-			return err
-		}
-
 		if err := tx.Save(app).Error; err != nil {
 			return err
 		}
-
-		if currentEventStatus == "active" {
-			if err := tx.Model(&Event{}).Where("id = ?", app.EventID).Update("status", "booked").Error; err != nil {
-				return err
-			}
+		if err := tx.Model(&Event{}).Where("id = ?", app.EventID).Update("is_active", false).Error; err != nil {
+			return err
 		}
-
 		return tx.Create(collab).Error
 	})
 }
 
-// CompleteCollaborationTx атомарно переводит коллаборацию и событие в completed.
+// CompleteCollaborationTx атомарно завершает коллаборацию и помечает событие как проведённое.
 func (r *ApplicationRepository) CompleteCollaborationTx(collaborationID int, eventID int) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&models.Collaboration{}).Where("id = ?", collaborationID).Update("status", "completed").Error; err != nil {
 			return err
 		}
-		return tx.Model(&Event{}).Where("id = ?", eventID).Update("status", "completed").Error
+		return tx.Model(&Event{}).Where("id = ?", eventID).Update("is_completed", true).Error
 	})
 }
 
-// CancelCollaborationTx атомарно отменяет коллаборацию.
-// Если событие booked и больше нет других pending коллабораций — возвращает событие в active.
-func (r *ApplicationRepository) CancelCollaborationTx(collaborationID int, eventID int) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.Collaboration{}).Where("id = ?", collaborationID).Update("status", "cancelled").Error; err != nil {
-			return err
-		}
-
-		var currentEventStatus string
-		if err := tx.Model(&Event{}).Select("status").Where("id = ?", eventID).Scan(&currentEventStatus).Error; err != nil {
-			return err
-		}
-
-		if currentEventStatus == "booked" {
-			var pendingCount int64
-			if err := tx.Model(&models.Collaboration{}).
-				Where("event_id = ? AND status = 'pending'", eventID).
-				Count(&pendingCount).Error; err != nil {
-				return err
-			}
-
-			if pendingCount == 0 {
-				return tx.Model(&Event{}).Where("id = ?", eventID).Update("status", "active").Error
-			}
-		}
-
-		return nil
-	})
+// CancelCollaborationTx атомарно отменяет коллаборацию. Событие не трогает — возврат в каталог через PublishEvent.
+func (r *ApplicationRepository) CancelCollaborationTx(collaborationID int) error {
+	return r.db.Model(&models.Collaboration{}).Where("id = ?", collaborationID).Update("status", "cancelled").Error
 }
 
 func (r *ApplicationRepository) GetCollaborationByID(id int) (*models.Collaboration, error) {

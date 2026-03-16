@@ -98,10 +98,10 @@ CREATE TABLE "events" (
   "title" VARCHAR(255) NOT NULL,
   "description" TEXT,
   "cover_photo_id" INT,
-  "status" VARCHAR(20) DEFAULT 'active',
+  "is_active" BOOLEAN DEFAULT true,
+  "is_completed" BOOLEAN DEFAULT false,
   "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  CHECK (status IN ('active', 'booked', 'completed'))
+  "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_events_creator_id ON events(creator_id);

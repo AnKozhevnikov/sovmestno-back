@@ -193,7 +193,7 @@ func (s *ApplicationService) CancelCollaboration(id int, userID int, userRole st
 		return errors.New("can only cancel pending collaborations")
 	}
 
-	return s.repo.CancelCollaborationTx(collab.ID, collab.EventID)
+	return s.repo.CancelCollaborationTx(collab.ID)
 }
 
 func (s *ApplicationService) ListCollaborationPartners(userID int) ([]int, error) {

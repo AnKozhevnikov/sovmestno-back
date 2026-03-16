@@ -2,6 +2,7 @@ package repository
 
 import (
 	"event-service/internal/models"
+	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -24,7 +25,7 @@ func (r *EventRepository) GetEventByID(id int) (*models.Event, error) {
 	return &event, err
 }
 
-func (r *EventRepository) ListEvents(creatorID *int, categoryID *int, status string, limit, offset int) ([]models.Event, error) {
+func (r *EventRepository) ListEvents(creatorID *int, categoryID *int, isActive *bool, isCompleted *bool, limit, offset int) ([]models.Event, error) {
 	var events []models.Event
 	query := r.db.Order("created_at DESC")
 
@@ -37,12 +38,29 @@ func (r *EventRepository) ListEvents(creatorID *int, categoryID *int, status str
 			Where("event_categories.category_id = ?", *categoryID)
 	}
 
-	if status != "" {
-		query = query.Where("status = ?", status)
+	if isActive != nil {
+		query = query.Where("is_active = ?", *isActive)
+	}
+
+	if isCompleted != nil {
+		query = query.Where("is_completed = ?", *isCompleted)
 	}
 
 	err := query.Limit(limit).Offset(offset).Find(&events).Error
 	return events, err
+}
+
+func (r *EventRepository) PublishEvent(id int, creatorID int) error {
+	result := r.db.Model(&models.Event{}).
+		Where("id = ? AND creator_id = ?", id, creatorID).
+		Update("is_active", true)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("event not found or access denied")
+	}
+	return nil
 }
 
 func (r *EventRepository) GetEventsByIDs(ids []int) ([]models.Event, error) {

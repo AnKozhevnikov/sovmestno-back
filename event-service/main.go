@@ -71,6 +71,7 @@ func main() {
 	{
 		eventsCreator.POST("", eventHandler.CreateEvent)
 		eventsCreator.PUT("/:id", eventHandler.UpdateEvent)
+		eventsCreator.PATCH("/:id/publish", eventHandler.PublishEvent)
 		eventsCreator.DELETE("/:id", eventHandler.DeleteEvent)
 	}
 
