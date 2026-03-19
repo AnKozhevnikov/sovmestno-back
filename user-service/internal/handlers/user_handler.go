@@ -136,7 +136,7 @@ func (h *UserHandler) UpdateCreator(c *gin.Context) {
 		return
 	}
 
-	var req service.CreateCreatorRequest
+	var req service.UpdateCreatorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
@@ -327,7 +327,7 @@ func (h *UserHandler) UpdateVenue(c *gin.Context) {
 		return
 	}
 
-	var req service.CreateVenueRequest
+	var req service.UpdateVenueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return

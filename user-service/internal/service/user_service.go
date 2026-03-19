@@ -70,6 +70,20 @@ type CreateCreatorRequest struct {
 	DzenLink    string `json:"dzen_link"`
 }
 
+type UpdateCreatorRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	PhotoID     *int   `json:"photo_id"`
+	Phone       string `json:"phone"`
+	WorkEmail   string `json:"work_email"`
+	TgPersonal  string `json:"tg_personal_link"`
+	TgChannel   string `json:"tg_channel_link"`
+	VkLink      string `json:"vk_link"`
+	TiktokLink  string `json:"tiktok_link"`
+	YoutubeLink string `json:"youtube_link"`
+	DzenLink    string `json:"dzen_link"`
+}
+
 func (s *UserService) CreateCreator(userID int, req *CreateCreatorRequest) (*models.Creator, error) {
 	// Проверяем, что у пользователя еще нет профиля creator
 	existing, _ := s.repo.GetCreatorByUserID(userID)
@@ -138,7 +152,7 @@ func (s *UserService) UpdateCreator(id, userID int, req *CreateCreatorRequest) (
 	return s.repo.GetCreatorByID(id)
 }
 
-func (s *UserService) UpdateCreatorByUserID(targetUserID, currentUserID int, req *CreateCreatorRequest) (*models.Creator, error) {
+func (s *UserService) UpdateCreatorByUserID(targetUserID, currentUserID int, req *UpdateCreatorRequest) (*models.Creator, error) {
 	// Проверяем права доступа
 	if targetUserID != currentUserID {
 		return nil, errors.New("forbidden: not your creator profile")
@@ -150,8 +164,10 @@ func (s *UserService) UpdateCreatorByUserID(targetUserID, currentUserID int, req
 		return nil, err
 	}
 
-	// Обновляем поля
-	creator.Name = req.Name
+	// Обновляем поля (name только если передан)
+	if req.Name != "" {
+		creator.Name = req.Name
+	}
 	creator.Description = req.Description
 	creator.PhotoID = req.PhotoID
 	creator.Phone = req.Phone
@@ -249,7 +265,27 @@ type CreateVenueRequest struct {
 	TiktokLink    string `json:"tiktok_link"`
 	YoutubeLink   string `json:"youtube_link"`
 	DzenLink      string `json:"dzen_link"`
-	CategoryIDs   []int  `json:"category_ids"` // Список ID категорий
+	CategoryIDs   []int  `json:"category_ids"`
+}
+
+type UpdateVenueRequest struct {
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	StreetAddress string `json:"street_address"`
+	CityID        *int   `json:"city_id"`
+	OpeningHours  string `json:"opening_hours"`
+	Capacity      int    `json:"capacity"`
+	LogoID        *int   `json:"logo_id"`
+	CoverPhotoID  *int   `json:"cover_photo_id"`
+	Phone         string `json:"phone"`
+	WorkEmail     string `json:"work_email"`
+	TgPersonal    string `json:"tg_personal_link"`
+	TgChannel     string `json:"tg_channel_link"`
+	VkLink        string `json:"vk_link"`
+	TiktokLink    string `json:"tiktok_link"`
+	YoutubeLink   string `json:"youtube_link"`
+	DzenLink      string `json:"dzen_link"`
+	CategoryIDs   []int  `json:"category_ids"`
 }
 
 func (s *UserService) CreateVenue(userID int, req *CreateVenueRequest) (*models.Venue, error) {
@@ -391,8 +427,8 @@ func (s *UserService) UpdateVenue(id, userID int, req *CreateVenueRequest) (*mod
 		return nil, err
 	}
 
-	// Обновляем категории
-	if len(req.CategoryIDs) > 0 {
+	// Обновляем категории (nil = не трогать, [] = очистить)
+	if req.CategoryIDs != nil {
 		if err := s.repo.AddVenueCategories(id, req.CategoryIDs); err != nil {
 			return nil, err
 		}
@@ -413,7 +449,7 @@ func (s *UserService) UpdateVenue(id, userID int, req *CreateVenueRequest) (*mod
 	return result, nil
 }
 
-func (s *UserService) UpdateVenueByUserID(targetUserID, currentUserID int, req *CreateVenueRequest) (*models.Venue, error) {
+func (s *UserService) UpdateVenueByUserID(targetUserID, currentUserID int, req *UpdateVenueRequest) (*models.Venue, error) {
 	// Проверяем права доступа
 	if targetUserID != currentUserID {
 		return nil, errors.New("forbidden: not your venue profile")
@@ -424,8 +460,10 @@ func (s *UserService) UpdateVenueByUserID(targetUserID, currentUserID int, req *
 		return nil, err
 	}
 
-	// Обновляем поля
-	venue.Name = req.Name
+	// Обновляем поля (name только если передан)
+	if req.Name != "" {
+		venue.Name = req.Name
+	}
 	venue.Description = req.Description
 	venue.StreetAddress = req.StreetAddress
 	venue.CityID = req.CityID
@@ -446,8 +484,8 @@ func (s *UserService) UpdateVenueByUserID(targetUserID, currentUserID int, req *
 		return nil, err
 	}
 
-	// Обновляем категории
-	if len(req.CategoryIDs) > 0 {
+	// Обновляем категории (nil = не трогать, [] = очистить)
+	if req.CategoryIDs != nil {
 		if err := s.repo.AddVenueCategories(venue.ID, req.CategoryIDs); err != nil {
 			return nil, err
 		}

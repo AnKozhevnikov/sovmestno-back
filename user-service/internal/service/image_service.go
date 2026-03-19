@@ -161,11 +161,12 @@ func (s *ImageService) GetImage(imageID int) (*models.Image, []byte, error) {
 
 func getBucketByImageType(imageType string) string {
 	bucketMap := map[string]string{
-		"avatar":       "creator-avatars",
-		"venue-logo":   "venue-logos",
-		"venue-cover":  "venue-cover-photos",
-		"venue-photo":  "venue-photos",
-		"event-cover":  "event-covers",
+		"avatar":        "creator-avatars",
+		"creator-photo": "creator-photos",
+		"venue-logo":    "venue-logos",
+		"venue-cover":   "venue-cover-photos",
+		"venue-photo":   "venue-photos",
+		"event-cover":   "event-covers",
 	}
 	return bucketMap[imageType]
 }
