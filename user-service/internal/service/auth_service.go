@@ -101,7 +101,7 @@ func (s *AuthService) RegisterCreator(req *RegisterCreatorRequest) (*AuthRespons
 	// Проверяем, не существует ли пользователь
 	existing, _ := s.repo.GetUserByEmail(req.Email)
 	if existing != nil {
-		return nil, errors.New("user with this email already exists")
+		return nil, ErrEmailAlreadyExists
 	}
 
 	// Хешируем пароль
@@ -163,7 +163,7 @@ func (s *AuthService) RegisterVenue(req *RegisterVenueRequest) (*AuthResponse, e
 	// Проверяем, не существует ли пользователь
 	existing, _ := s.repo.GetUserByEmail(req.Email)
 	if existing != nil {
-		return nil, errors.New("user with this email already exists")
+		return nil, ErrEmailAlreadyExists
 	}
 
 	// Хешируем пароль
@@ -235,13 +235,13 @@ func (s *AuthService) RegisterVenue(req *RegisterVenueRequest) (*AuthResponse, e
 func (s *AuthService) RegisterAdmin(req *RegisterAdminRequest) (*AuthResponse, error) {
 	// Проверяем секретный ключ администратора
 	if req.AdminSecret != s.cfg.AdminSecretKey {
-		return nil, errors.New("invalid admin secret key")
+		return nil, ErrInvalidAdminSecret
 	}
 
 	// Проверяем, не существует ли пользователь
 	existing, _ := s.repo.GetUserByEmail(req.Email)
 	if existing != nil {
-		return nil, errors.New("user with this email already exists")
+		return nil, ErrEmailAlreadyExists
 	}
 
 	// Хешируем пароль
@@ -285,12 +285,12 @@ func (s *AuthService) Login(req *LoginRequest) (*AuthResponse, error) {
 	// Находим пользователя
 	user, err := s.repo.GetUserByEmail(req.Email)
 	if err != nil {
-		return nil, errors.New("invalid email or password")
+		return nil, ErrInvalidCredentials
 	}
 
 	// Проверяем пароль
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		return nil, errors.New("invalid email or password")
+		return nil, ErrInvalidCredentials
 	}
 
 	// Генерируем токены
@@ -372,24 +372,24 @@ func (s *AuthService) RefreshAccessToken(refreshTokenString string) (string, err
 	})
 
 	if err != nil || !token.Valid {
-		return "", errors.New("invalid refresh token")
+		return "", ErrInvalidRefreshToken
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return "", errors.New("invalid token claims")
+		return "", ErrInvalidRefreshToken
 	}
 
 	// 2. Проверить тип токена
 	tokenType, _ := claims["type"].(string)
 	if tokenType != "refresh" {
-		return "", errors.New("token is not a refresh token")
+		return "", ErrInvalidRefreshToken
 	}
 
 	// 3. Извлечь JTI и проверить в Redis whitelist
 	jti, _ := claims["jti"].(string)
 	if jti == "" {
-		return "", errors.New("token missing jti")
+		return "", ErrInvalidRefreshToken
 	}
 
 	ctx := context.Background()
@@ -397,7 +397,7 @@ func (s *AuthService) RefreshAccessToken(refreshTokenString string) (string, err
 
 	exists := s.redisClient.Exists(ctx, key).Val()
 	if exists == 0 {
-		return "", errors.New("refresh token has been revoked or expired")
+		return "", ErrInvalidRefreshToken
 	}
 
 	// 4. Извлечь user_id
@@ -407,7 +407,7 @@ func (s *AuthService) RefreshAccessToken(refreshTokenString string) (string, err
 	// 5. Получить пользователя из БД
 	user, err := s.repo.GetUserByID(userID)
 	if err != nil {
-		return "", errors.New("user not found")
+		return "", ErrUserNotFound
 	}
 
 	// 6. Сгенерировать новый access token
@@ -427,18 +427,18 @@ func (s *AuthService) Logout(refreshTokenString string) error {
 	})
 
 	if err != nil || !token.Valid {
-		return errors.New("invalid refresh token")
+		return ErrInvalidRefreshToken
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return errors.New("invalid token claims")
+		return ErrInvalidRefreshToken
 	}
 
 	// 2. Извлечь JTI
 	jti, _ := claims["jti"].(string)
 	if jti == "" {
-		return errors.New("token missing jti")
+		return ErrInvalidRefreshToken
 	}
 
 	// 3. Удалить из Redis whitelist

@@ -10,6 +10,14 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+func errorResponse(code, message string) gin.H {
+	return gin.H{
+		"errors": []gin.H{
+			{"code": code, "message": message},
+		},
+	}
+}
+
 func AuthMiddleware(c *gin.Context) {
 	path := c.Request.URL.Path
 	if isPublicRoute(path) {
@@ -19,14 +27,14 @@ func AuthMiddleware(c *gin.Context) {
 
 	token := c.GetHeader("Authorization")
 	if token == "" {
-		c.JSON(401, gin.H{"error": "Unauthorized: missing token"})
+		c.JSON(401, errorResponse("UNAUTHORIZED", "Missing authorization token"))
 		c.Abort()
 		return
 	}
 
 	claims, err := validateToken(token)
 	if err != nil {
-		c.JSON(401, gin.H{"error": fmt.Sprintf("Invalid token: %v", err)})
+		c.JSON(401, errorResponse("INVALID_TOKEN", "Invalid or expired token"))
 		c.Abort()
 		return
 	}
@@ -54,6 +62,7 @@ func isPublicRoute(path string) bool {
 		"/swagger-user/",
 		"/swagger-event/",
 		"/swagger-application/",
+		"/api/event/categories",
 	}
 
 	for _, prefix := range allowedPrefixes {

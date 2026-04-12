@@ -20,7 +20,7 @@ func UserSwaggerHandler(c *gin.Context) {
 
 	serviceURL := os.Getenv("USER_SERVICE_URL")
 	if serviceURL == "" {
-		c.JSON(503, gin.H{"error": "User service not configured"})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "User service not configured"))
 		return
 	}
 
@@ -28,7 +28,7 @@ func UserSwaggerHandler(c *gin.Context) {
 
 	resp, err := http.Get(targetURL)
 	if err != nil {
-		c.JSON(503, gin.H{"error": "Failed to fetch from user service"})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "Failed to fetch from user service"))
 		return
 	}
 	defer resp.Body.Close()
@@ -46,20 +46,20 @@ func UserSwaggerHandler(c *gin.Context) {
 func serveModifiedSwaggerSpec(c *gin.Context) {
 	serviceURL := os.Getenv("USER_SERVICE_URL")
 	if serviceURL == "" {
-		c.JSON(503, gin.H{"error": "User service not configured"})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "User service not configured"))
 		return
 	}
 
 	resp, err := http.Get(serviceURL + "/swagger/doc.json")
 	if err != nil {
-		c.JSON(503, gin.H{"error": "Failed to fetch swagger spec"})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "Failed to fetch swagger spec"))
 		return
 	}
 	defer resp.Body.Close()
 
 	var spec map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&spec); err != nil {
-		c.JSON(500, gin.H{"error": "Failed to parse swagger spec"})
+		c.JSON(500, errResponse("INTERNAL_ERROR", "Failed to parse swagger spec"))
 		return
 	}
 
@@ -92,7 +92,7 @@ func EventSwaggerHandler(c *gin.Context) {
 
 	serviceURL := os.Getenv("EVENT_SERVICE_URL")
 	if serviceURL == "" {
-		c.JSON(503, gin.H{"error": "Event service not configured"})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "Event service not configured"))
 		return
 	}
 
@@ -100,7 +100,7 @@ func EventSwaggerHandler(c *gin.Context) {
 
 	resp, err := http.Get(targetURL)
 	if err != nil {
-		c.JSON(503, gin.H{"error": "Failed to fetch from event service"})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "Failed to fetch from event service"))
 		return
 	}
 	defer resp.Body.Close()
@@ -118,20 +118,20 @@ func EventSwaggerHandler(c *gin.Context) {
 func serveModifiedEventSwaggerSpec(c *gin.Context) {
 	serviceURL := os.Getenv("EVENT_SERVICE_URL")
 	if serviceURL == "" {
-		c.JSON(503, gin.H{"error": "Event service not configured"})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "Event service not configured"))
 		return
 	}
 
 	resp, err := http.Get(serviceURL + "/swagger/doc.json")
 	if err != nil {
-		c.JSON(503, gin.H{"error": "Failed to fetch swagger spec"})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "Failed to fetch swagger spec"))
 		return
 	}
 	defer resp.Body.Close()
 
 	var spec map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&spec); err != nil {
-		c.JSON(500, gin.H{"error": "Failed to parse swagger spec"})
+		c.JSON(500, errResponse("INTERNAL_ERROR", "Failed to parse swagger spec"))
 		return
 	}
 

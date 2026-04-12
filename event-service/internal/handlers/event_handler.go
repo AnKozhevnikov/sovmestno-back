@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"errors"
+	"event-service/internal/apperror"
 	"event-service/internal/service"
 	"net/http"
 	"strconv"
@@ -25,27 +27,31 @@ func NewEventHandler(eventService *service.EventService) *EventHandler {
 // @Produce json
 // @Param event body service.CreateEventRequest true "Event data"
 // @Success 201 {object} models.Event
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Failure 400 {object} apperror.ErrorResponse
+// @Failure 401 {object} apperror.ErrorResponse
+// @Failure 500 {object} apperror.ErrorResponse
 // @Security BearerAuth
 // @Router /events [post]
 func (h *EventHandler) CreateEvent(c *gin.Context) {
-	// Получаем ID создателя из контекста (устанавливается Gateway)
 	creatorID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	var req service.CreateEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if resp, ok := apperror.FromValidation(err); ok {
+			c.JSON(http.StatusBadRequest, resp)
+			return
+		}
+		c.JSON(http.StatusBadRequest, apperror.One("VALIDATION_ERROR", err.Error()))
 		return
 	}
 
 	event, err := h.eventService.CreateEvent(&req, creatorID.(int))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to create event"))
 		return
 	}
 
@@ -59,20 +65,20 @@ func (h *EventHandler) CreateEvent(c *gin.Context) {
 // @Produce json
 // @Param id path int true "Event ID"
 // @Success 200 {object} models.Event
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
+// @Failure 400 {object} apperror.ErrorResponse
+// @Failure 404 {object} apperror.ErrorResponse
 // @Security BearerAuth
 // @Router /events/{id} [get]
 func (h *EventHandler) GetEvent(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid event ID"))
 		return
 	}
 
 	event, err := h.eventService.GetEventByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+		c.JSON(http.StatusNotFound, apperror.One("EVENT_NOT_FOUND", "Event not found"))
 		return
 	}
 
@@ -91,7 +97,7 @@ func (h *EventHandler) GetEvent(c *gin.Context) {
 // @Param limit query int false "Количество элементов (по умолчанию 20, максимум 100)"
 // @Param offset query int false "Смещение (по умолчанию 0)"
 // @Success 200 {object} map[string]interface{}
-// @Failure 500 {object} map[string]string
+// @Failure 500 {object} apperror.ErrorResponse
 // @Security BearerAuth
 // @Router /events [get]
 func (h *EventHandler) ListEvents(c *gin.Context) {
@@ -132,7 +138,7 @@ func (h *EventHandler) ListEvents(c *gin.Context) {
 
 	events, err := h.eventService.ListEvents(creatorID, categoryID, isActive, isCompleted, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to fetch events"))
 		return
 	}
 
@@ -150,14 +156,14 @@ func (h *EventHandler) ListEvents(c *gin.Context) {
 // @Produce json
 // @Param ids query string true "Comma-separated event IDs (e.g. 1,2,3)"
 // @Success 200 {array} models.Event
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Failure 400 {object} apperror.ErrorResponse
+// @Failure 500 {object} apperror.ErrorResponse
 // @Security BearerAuth
 // @Router /events/batch [get]
 func (h *EventHandler) GetEventsByIDs(c *gin.Context) {
 	idsStr := c.Query("ids")
 	if idsStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ids query parameter is required"})
+		c.JSON(http.StatusBadRequest, apperror.One("FIELD_REQUIRED", "ids query parameter is required"))
 		return
 	}
 
@@ -165,7 +171,7 @@ func (h *EventHandler) GetEventsByIDs(c *gin.Context) {
 	for _, s := range splitAndTrim(idsStr) {
 		id, err := strconv.Atoi(s)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id: " + s})
+			c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid event ID: "+s))
 			return
 		}
 		ids = append(ids, id)
@@ -173,7 +179,7 @@ func (h *EventHandler) GetEventsByIDs(c *gin.Context) {
 
 	events, err := h.eventService.GetEventsByIDs(ids)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to fetch events"))
 		return
 	}
 
@@ -200,38 +206,46 @@ func splitAndTrim(s string) []string {
 // @Param id path int true "Event ID"
 // @Param event body service.UpdateEventRequest true "Event data"
 // @Success 200 {object} models.Event
-// @Failure 400 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Failure 400 {object} apperror.ErrorResponse
+// @Failure 401 {object} apperror.ErrorResponse
+// @Failure 403 {object} apperror.ErrorResponse
+// @Failure 404 {object} apperror.ErrorResponse
 // @Security BearerAuth
 // @Router /events/{id} [put]
 func (h *EventHandler) UpdateEvent(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid event ID"))
 		return
 	}
 
 	creatorID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	var req service.UpdateEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if resp, ok := apperror.FromValidation(err); ok {
+			c.JSON(http.StatusBadRequest, resp)
+			return
+		}
+		c.JSON(http.StatusBadRequest, apperror.One("VALIDATION_ERROR", err.Error()))
 		return
 	}
 
 	event, err := h.eventService.UpdateEvent(id, &req, creatorID.(int))
 	if err != nil {
-		if err.Error() == "access denied: you are not the creator of this event" {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrAccessDenied) {
+			c.JSON(http.StatusForbidden, apperror.One("ACCESS_DENIED", "You are not the creator of this event"))
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrEventNotFound) {
+			c.JSON(http.StatusNotFound, apperror.One("EVENT_NOT_FOUND", "Event not found"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to update event"))
 		return
 	}
 
@@ -244,30 +258,35 @@ func (h *EventHandler) UpdateEvent(c *gin.Context) {
 // @Tags events
 // @Param id path int true "Event ID"
 // @Success 204
-// @Failure 400 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Failure 400 {object} apperror.ErrorResponse
+// @Failure 401 {object} apperror.ErrorResponse
+// @Failure 403 {object} apperror.ErrorResponse
+// @Failure 500 {object} apperror.ErrorResponse
 // @Security BearerAuth
 // @Router /events/{id}/publish [patch]
 func (h *EventHandler) PublishEvent(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid event ID"))
 		return
 	}
 
 	creatorID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	if err := h.eventService.PublishEvent(id, creatorID.(int)); err != nil {
-		if err.Error() == "event not found or access denied" {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrAccessDenied) {
+			c.JSON(http.StatusForbidden, apperror.One("ACCESS_DENIED", "You are not the creator of this event"))
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrEventNotFound) {
+			c.JSON(http.StatusNotFound, apperror.One("EVENT_NOT_FOUND", "Event not found"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to publish event"))
 		return
 	}
 
@@ -280,33 +299,37 @@ func (h *EventHandler) PublishEvent(c *gin.Context) {
 // @Tags events
 // @Param id path int true "Event ID"
 // @Success 204
-// @Failure 400 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Failure 400 {object} apperror.ErrorResponse
+// @Failure 401 {object} apperror.ErrorResponse
+// @Failure 403 {object} apperror.ErrorResponse
+// @Failure 500 {object} apperror.ErrorResponse
 // @Security BearerAuth
 // @Router /events/{id} [delete]
 func (h *EventHandler) DeleteEvent(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid event ID"))
 		return
 	}
 
 	creatorID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	if err := h.eventService.DeleteEvent(id, creatorID.(int)); err != nil {
-		if err.Error() == "access denied: you are not the creator of this event" {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrAccessDenied) {
+			c.JSON(http.StatusForbidden, apperror.One("ACCESS_DENIED", "You are not the creator of this event"))
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrEventNotFound) {
+			c.JSON(http.StatusNotFound, apperror.One("EVENT_NOT_FOUND", "Event not found"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to delete event"))
 		return
 	}
 
 	c.Status(http.StatusNoContent)
 }
-

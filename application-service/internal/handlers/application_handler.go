@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"application-service/internal/apperror"
 	"application-service/internal/service"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -24,33 +26,49 @@ func NewApplicationHandler(applicationService *service.ApplicationService) *Appl
 // @Produce json
 // @Param application body service.CreateApplicationRequest true "Application data"
 // @Success 201 {object} models.Application
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Failure 400 {object} apperror.ErrorResponse
+// @Failure 401 {object} apperror.ErrorResponse
+// @Failure 409 {object} apperror.ErrorResponse
 // @Security BearerAuth
 // @Router /applications [post]
 func (h *ApplicationHandler) CreateApplication(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	role, exists := c.Get("role")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User role not found"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "User role not found"))
 		return
 	}
 
 	var req service.CreateApplicationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if resp, ok := apperror.FromValidation(err); ok {
+			c.JSON(http.StatusBadRequest, resp)
+			return
+		}
+		c.JSON(http.StatusBadRequest, apperror.One("VALIDATION_ERROR", err.Error()))
 		return
 	}
 
 	app, err := h.applicationService.CreateApplication(&req, userID.(int), role.(string))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrCannotApplyToSelf) {
+			c.JSON(http.StatusBadRequest, apperror.One("CANNOT_APPLY_TO_SELF", "You cannot send an application to yourself"))
+			return
+		}
+		if errors.Is(err, service.ErrDuplicatePendingApplication) {
+			c.JSON(http.StatusConflict, apperror.One("DUPLICATE_APPLICATION", "A pending application already exists for this event"))
+			return
+		}
+		if errors.Is(err, service.ErrMirrorApplicationExists) {
+			c.JSON(http.StatusConflict, apperror.One("MIRROR_APPLICATION_EXISTS", "An incoming application already exists for this event, check your applications"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to create application"))
 		return
 	}
 
@@ -64,31 +82,32 @@ func (h *ApplicationHandler) CreateApplication(c *gin.Context) {
 // @Produce json
 // @Param id path int true "Application ID"
 // @Success 200 {object} models.Application
-// @Failure 400 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 404 {object} map[string]string
+// @Failure 400 {object} apperror.ErrorResponse
+// @Failure 401 {object} apperror.ErrorResponse
+// @Failure 403 {object} apperror.ErrorResponse
+// @Failure 404 {object} apperror.ErrorResponse
 // @Security BearerAuth
 // @Router /applications/{id} [get]
 func (h *ApplicationHandler) GetApplication(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid application ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid application ID"))
 		return
 	}
 
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	app, err := h.applicationService.GetApplicationByID(id, userID.(int))
 	if err != nil {
-		if err.Error() == "access denied: you are not involved in this application" {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrAccessDenied) {
+			c.JSON(http.StatusForbidden, apperror.One("ACCESS_DENIED", "You are not involved in this application"))
 			return
 		}
-		c.JSON(http.StatusNotFound, gin.H{"error": "Application not found"})
+		c.JSON(http.StatusNotFound, apperror.One("APPLICATION_NOT_FOUND", "Application not found"))
 		return
 	}
 
@@ -105,14 +124,14 @@ func (h *ApplicationHandler) GetApplication(c *gin.Context) {
 // @Param limit query int false "Limit" default(10)
 // @Param offset query int false "Offset" default(0)
 // @Success 200 {array} models.Application
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Failure 401 {object} apperror.ErrorResponse
+// @Failure 500 {object} apperror.ErrorResponse
 // @Security BearerAuth
 // @Router /applications [get]
 func (h *ApplicationHandler) ListApplications(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
@@ -123,7 +142,7 @@ func (h *ApplicationHandler) ListApplications(c *gin.Context) {
 
 	apps, err := h.applicationService.ListApplications(userID.(int), role, status, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to fetch applications"))
 		return
 	}
 
@@ -137,35 +156,36 @@ func (h *ApplicationHandler) ListApplications(c *gin.Context) {
 // @Produce json
 // @Param id path int true "Application ID"
 // @Success 200 {object} models.Application
-// @Failure 400 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 404 {object} map[string]string
+// @Failure 400 {object} apperror.ErrorResponse
+// @Failure 401 {object} apperror.ErrorResponse
+// @Failure 403 {object} apperror.ErrorResponse
+// @Failure 404 {object} apperror.ErrorResponse
 // @Security BearerAuth
 // @Router /applications/{id}/accept [patch]
 func (h *ApplicationHandler) AcceptApplication(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid application ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid application ID"))
 		return
 	}
 
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	app, err := h.applicationService.AcceptApplication(id, userID.(int))
 	if err != nil {
-		if err.Error() == "access denied: only receiver can accept application" {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrAccessDenied) {
+			c.JSON(http.StatusForbidden, apperror.One("ACCESS_DENIED", "Only the receiver can accept this application"))
 			return
 		}
-		if err.Error() == "cannot accept already processed application" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrApplicationAlreadyProcessed) {
+			c.JSON(http.StatusConflict, apperror.One("APPLICATION_ALREADY_PROCESSED", "Application has already been accepted or rejected"))
 			return
 		}
-		c.JSON(http.StatusNotFound, gin.H{"error": "Application not found"})
+		c.JSON(http.StatusNotFound, apperror.One("APPLICATION_NOT_FOUND", "Application not found"))
 		return
 	}
 
@@ -179,35 +199,36 @@ func (h *ApplicationHandler) AcceptApplication(c *gin.Context) {
 // @Produce json
 // @Param id path int true "Application ID"
 // @Success 200 {object} models.Application
-// @Failure 400 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 404 {object} map[string]string
+// @Failure 400 {object} apperror.ErrorResponse
+// @Failure 401 {object} apperror.ErrorResponse
+// @Failure 403 {object} apperror.ErrorResponse
+// @Failure 404 {object} apperror.ErrorResponse
 // @Security BearerAuth
 // @Router /applications/{id}/reject [patch]
 func (h *ApplicationHandler) RejectApplication(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid application ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid application ID"))
 		return
 	}
 
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	app, err := h.applicationService.RejectApplication(id, userID.(int))
 	if err != nil {
-		if err.Error() == "access denied: only receiver can reject application" {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrAccessDenied) {
+			c.JSON(http.StatusForbidden, apperror.One("ACCESS_DENIED", "Only the receiver can reject this application"))
 			return
 		}
-		if err.Error() == "cannot reject already processed application" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrApplicationAlreadyProcessed) {
+			c.JSON(http.StatusConflict, apperror.One("APPLICATION_ALREADY_PROCESSED", "Application has already been accepted or rejected"))
 			return
 		}
-		c.JSON(http.StatusNotFound, gin.H{"error": "Application not found"})
+		c.JSON(http.StatusNotFound, apperror.One("APPLICATION_NOT_FOUND", "Application not found"))
 		return
 	}
 
@@ -220,32 +241,35 @@ func (h *ApplicationHandler) RejectApplication(c *gin.Context) {
 // @Tags applications
 // @Param id path int true "Application ID"
 // @Success 204
-// @Failure 400 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Failure 400 {object} apperror.ErrorResponse
+// @Failure 401 {object} apperror.ErrorResponse
+// @Failure 403 {object} apperror.ErrorResponse
+// @Failure 404 {object} apperror.ErrorResponse
 // @Security BearerAuth
 // @Router /applications/{id} [delete]
 func (h *ApplicationHandler) DeleteApplication(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid application ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid application ID"))
 		return
 	}
 
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	if err := h.applicationService.DeleteApplication(id, userID.(int)); err != nil {
-		if err.Error() == "access denied: only sender can delete application" ||
-			err.Error() == "cannot delete already processed application" {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrAccessDenied) {
+			c.JSON(http.StatusForbidden, apperror.One("ACCESS_DENIED", "Only the sender can delete this application"))
 			return
 		}
-		c.JSON(http.StatusNotFound, gin.H{"error": "Application not found"})
+		if errors.Is(err, service.ErrApplicationAlreadyProcessed) {
+			c.JSON(http.StatusConflict, apperror.One("APPLICATION_ALREADY_PROCESSED", "Cannot delete an already processed application"))
+			return
+		}
+		c.JSON(http.StatusNotFound, apperror.One("APPLICATION_NOT_FOUND", "Application not found"))
 		return
 	}
 

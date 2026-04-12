@@ -34,6 +34,7 @@ func HealthHandler(c *gin.Context) {
 		"user-service":        os.Getenv("USER_SERVICE_URL"),
 		"event-service":       os.Getenv("EVENT_SERVICE_URL"),
 		"application-service": os.Getenv("APPLICATION_SERVICE_URL"),
+		"analytics-service":   os.Getenv("ANALYTICS_SERVICE_URL"),
 	}
 
 	var wg sync.WaitGroup

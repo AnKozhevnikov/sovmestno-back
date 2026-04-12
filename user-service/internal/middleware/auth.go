@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"net/http"
 	"strconv"
+	"user-service/internal/apperror"
 
 	"github.com/gin-gonic/gin"
 )
@@ -33,7 +35,7 @@ func RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists || userID == nil {
-			c.JSON(401, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 			c.Abort()
 			return
 		}

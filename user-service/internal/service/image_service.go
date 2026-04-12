@@ -45,18 +45,18 @@ func NewImageService(repo *repository.UserRepository, cfg *config.Config) (*Imag
 func (s *ImageService) UploadImage(file *multipart.FileHeader, imageType string) (*models.Image, error) {
 	// Проверяем тип файла
 	if !isValidImageType(file.Filename) {
-		return nil, fmt.Errorf("invalid file type, allowed: jpg, jpeg, png, gif, webp")
+		return nil, ErrInvalidFileType
 	}
 
 	// Проверяем размер (максимум 10MB)
 	if file.Size > 10*1024*1024 {
-		return nil, fmt.Errorf("file too large, maximum size is 10MB")
+		return nil, ErrFileTooLarge
 	}
 
 	// Определяем бакет по типу изображения
 	bucketName := getBucketByImageType(imageType)
 	if bucketName == "" {
-		return nil, fmt.Errorf("invalid image type: %s", imageType)
+		return nil, ErrInvalidImageType
 	}
 
 	// Открываем файл

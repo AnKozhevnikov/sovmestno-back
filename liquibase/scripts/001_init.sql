@@ -138,6 +138,7 @@ CREATE TABLE "applications" (
 CREATE INDEX idx_applications_sender ON applications(sender_id);
 CREATE INDEX idx_applications_receiver ON applications(receiver_id);
 CREATE INDEX idx_applications_status ON applications(status);
+CREATE UNIQUE INDEX uq_application_pending ON applications (sender_id, receiver_id, event_id) WHERE status = 'pending';
 
 ALTER TABLE "venues" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
 ALTER TABLE "venues" ADD FOREIGN KEY ("city_id") REFERENCES "cities" ("id") ON DELETE RESTRICT;

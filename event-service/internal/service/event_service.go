@@ -3,7 +3,6 @@ package service
 import (
 	"event-service/internal/models"
 	"event-service/internal/repository"
-	"fmt"
 )
 
 type EventService struct {
@@ -98,7 +97,7 @@ func (s *EventService) UpdateEvent(id int, req *UpdateEventRequest, creatorID in
 	}
 
 	if event.CreatorID != creatorID {
-		return nil, fmt.Errorf("access denied: you are not the creator of this event")
+		return nil, ErrAccessDenied
 	}
 
 	if req.Title != nil {
@@ -142,7 +141,7 @@ func (s *EventService) DeleteEvent(id int, creatorID int) error {
 	}
 
 	if event.CreatorID != creatorID {
-		return fmt.Errorf("access denied: you are not the creator of this event")
+		return ErrAccessDenied
 	}
 
 	return s.repo.DeleteEvent(id)

@@ -24,7 +24,7 @@ func (s *UserService) GetMyProfile(userID int) (map[string]interface{}, error) {
 	// Получаем базовую информацию о пользователе
 	user, err := s.repo.GetUserByID(userID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, ErrUserNotFound
 	}
 
 	response := map[string]interface{}{
@@ -38,17 +38,17 @@ func (s *UserService) GetMyProfile(userID int) (map[string]interface{}, error) {
 	case "creator":
 		creator, err := s.repo.GetCreatorByUserID(userID)
 		if err != nil {
-			return nil, errors.New("creator profile not found")
+			return nil, ErrCreatorNotFound
 		}
 		response["profile"] = creator
 	case "venue":
 		venue, err := s.repo.GetVenueByUserID(userID)
 		if err != nil {
-			return nil, errors.New("venue profile not found")
+			return nil, ErrVenueNotFound
 		}
 		response["profile"] = venue
 	default:
-		return nil, errors.New("unknown user role")
+		return nil, ErrUserNotFound
 	}
 
 	return response, nil
@@ -88,7 +88,7 @@ func (s *UserService) CreateCreator(userID int, req *CreateCreatorRequest) (*mod
 	// Проверяем, что у пользователя еще нет профиля creator
 	existing, _ := s.repo.GetCreatorByUserID(userID)
 	if existing != nil {
-		return nil, errors.New("creator profile already exists")
+		return nil, ErrProfileAlreadyExists
 	}
 
 	creator := &models.Creator{
@@ -155,7 +155,7 @@ func (s *UserService) UpdateCreator(id, userID int, req *CreateCreatorRequest) (
 func (s *UserService) UpdateCreatorByUserID(targetUserID, currentUserID int, req *UpdateCreatorRequest) (*models.Creator, error) {
 	// Проверяем права доступа
 	if targetUserID != currentUserID {
-		return nil, errors.New("forbidden: not your creator profile")
+		return nil, ErrAccessDenied
 	}
 
 	// Получаем creator по user_id
@@ -193,7 +193,7 @@ func (s *UserService) DeleteCreator(id, userID int) error {
 	}
 
 	if creator.UserID != userID {
-		return errors.New("forbidden: not your creator profile")
+		return ErrAccessDenied
 	}
 
 	return s.repo.DeleteCreator(id)
@@ -209,7 +209,7 @@ func (s *UserService) ListCreators(limit, offset int) ([]models.Creator, error) 
 func (s *UserService) AddCreatorPhoto(userID, imageID int) (*models.CreatorPhoto, error) {
 	creator, err := s.repo.GetCreatorByUserID(userID)
 	if err != nil {
-		return nil, errors.New("creator profile not found")
+		return nil, ErrCreatorNotFound
 	}
 	return s.repo.AddCreatorPhoto(creator.ID, imageID)
 }
@@ -217,16 +217,16 @@ func (s *UserService) AddCreatorPhoto(userID, imageID int) (*models.CreatorPhoto
 func (s *UserService) DeleteCreatorPhoto(userID, photoID int) error {
 	creator, err := s.repo.GetCreatorByUserID(userID)
 	if err != nil {
-		return errors.New("creator profile not found")
+		return ErrCreatorNotFound
 	}
 
 	photo, err := s.repo.GetCreatorPhoto(photoID)
 	if err != nil {
-		return errors.New("photo not found")
+		return ErrPhotoNotFound
 	}
 
 	if photo.CreatorID != creator.ID {
-		return errors.New("forbidden: not your photo")
+		return ErrAccessDenied
 	}
 
 	return s.repo.DeleteCreatorPhoto(photoID)
@@ -235,7 +235,7 @@ func (s *UserService) DeleteCreatorPhoto(userID, photoID int) error {
 func (s *UserService) DeleteCreatorByUserID(targetUserID, currentUserID int) error {
 	// Проверяем права доступа
 	if targetUserID != currentUserID {
-		return errors.New("forbidden: not your creator profile")
+		return ErrAccessDenied
 	}
 
 	creator, err := s.repo.GetCreatorByUserID(targetUserID)
@@ -292,7 +292,7 @@ func (s *UserService) CreateVenue(userID int, req *CreateVenueRequest) (*models.
 	// Проверяем, что у пользователя еще нет профиля venue
 	existing, _ := s.repo.GetVenueByUserID(userID)
 	if existing != nil {
-		return nil, errors.New("venue profile already exists")
+		return nil, ErrProfileAlreadyExists
 	}
 
 	venue := &models.Venue{
@@ -452,7 +452,7 @@ func (s *UserService) UpdateVenue(id, userID int, req *CreateVenueRequest) (*mod
 func (s *UserService) UpdateVenueByUserID(targetUserID, currentUserID int, req *UpdateVenueRequest) (*models.Venue, error) {
 	// Проверяем права доступа
 	if targetUserID != currentUserID {
-		return nil, errors.New("forbidden: not your venue profile")
+		return nil, ErrAccessDenied
 	}
 
 	venue, err := s.repo.GetVenueByUserID(targetUserID)
@@ -513,7 +513,7 @@ func (s *UserService) DeleteVenue(id, userID int) error {
 	}
 
 	if venue.UserID != userID {
-		return errors.New("forbidden: not your venue profile")
+		return ErrAccessDenied
 	}
 
 	return s.repo.DeleteVenue(id)
@@ -522,7 +522,7 @@ func (s *UserService) DeleteVenue(id, userID int) error {
 func (s *UserService) AddVenuePhoto(userID, imageID int) (*models.VenuePhoto, error) {
 	venue, err := s.repo.GetVenueByUserID(userID)
 	if err != nil {
-		return nil, errors.New("venue profile not found")
+		return nil, ErrVenueNotFound
 	}
 	return s.repo.AddVenuePhoto(venue.ID, imageID)
 }
@@ -530,16 +530,16 @@ func (s *UserService) AddVenuePhoto(userID, imageID int) (*models.VenuePhoto, er
 func (s *UserService) DeleteVenuePhoto(userID, photoID int) error {
 	venue, err := s.repo.GetVenueByUserID(userID)
 	if err != nil {
-		return errors.New("venue profile not found")
+		return ErrVenueNotFound
 	}
 
 	photo, err := s.repo.GetVenuePhoto(photoID)
 	if err != nil {
-		return errors.New("photo not found")
+		return ErrPhotoNotFound
 	}
 
 	if photo.VenueID != venue.ID {
-		return errors.New("forbidden: not your photo")
+		return ErrAccessDenied
 	}
 
 	return s.repo.DeleteVenuePhoto(photoID)
@@ -548,7 +548,7 @@ func (s *UserService) DeleteVenuePhoto(userID, photoID int) error {
 func (s *UserService) DeleteVenueByUserID(targetUserID, currentUserID int) error {
 	// Проверяем права доступа
 	if targetUserID != currentUserID {
-		return errors.New("forbidden: not your venue profile")
+		return ErrAccessDenied
 	}
 
 	venue, err := s.repo.GetVenueByUserID(targetUserID)

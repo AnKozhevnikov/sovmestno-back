@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"errors"
+	"net/http"
+	"user-service/internal/apperror"
 	"user-service/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -22,22 +25,31 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 // @Produce      json
 // @Param        request body service.RegisterCreatorRequest true "Данные регистрации создателя"
 // @Success      201 {object} service.AuthResponse "Успешная регистрация"
-// @Failure      400 {object} map[string]string "Ошибка валидации или email уже существует"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      409 {object} apperror.ErrorResponse
 // @Router       /auth/register/creator [post]
 func (h *AuthHandler) RegisterCreator(c *gin.Context) {
 	var req service.RegisterCreatorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if resp, ok := apperror.FromValidation(err); ok {
+			c.JSON(http.StatusBadRequest, resp)
+			return
+		}
+		c.JSON(http.StatusBadRequest, apperror.One("VALIDATION_ERROR", err.Error()))
 		return
 	}
 
 	resp, err := h.authService.RegisterCreator(&req)
 	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrEmailAlreadyExists) {
+			c.JSON(http.StatusConflict, apperror.One("EMAIL_ALREADY_EXISTS", "User with this email already exists"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to create account"))
 		return
 	}
 
-	c.JSON(201, resp)
+	c.JSON(http.StatusCreated, resp)
 }
 
 // RegisterVenue godoc
@@ -48,22 +60,31 @@ func (h *AuthHandler) RegisterCreator(c *gin.Context) {
 // @Produce      json
 // @Param        request body service.RegisterVenueRequest true "Данные регистрации площадки"
 // @Success      201 {object} service.AuthResponse "Успешная регистрация"
-// @Failure      400 {object} map[string]string "Ошибка валидации или email уже существует"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      409 {object} apperror.ErrorResponse
 // @Router       /auth/register/venue [post]
 func (h *AuthHandler) RegisterVenue(c *gin.Context) {
 	var req service.RegisterVenueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if resp, ok := apperror.FromValidation(err); ok {
+			c.JSON(http.StatusBadRequest, resp)
+			return
+		}
+		c.JSON(http.StatusBadRequest, apperror.One("VALIDATION_ERROR", err.Error()))
 		return
 	}
 
 	resp, err := h.authService.RegisterVenue(&req)
 	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrEmailAlreadyExists) {
+			c.JSON(http.StatusConflict, apperror.One("EMAIL_ALREADY_EXISTS", "User with this email already exists"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to create account"))
 		return
 	}
 
-	c.JSON(201, resp)
+	c.JSON(http.StatusCreated, resp)
 }
 
 // RegisterAdmin godoc
@@ -74,27 +95,36 @@ func (h *AuthHandler) RegisterVenue(c *gin.Context) {
 // @Produce      json
 // @Param        request body service.RegisterAdminRequest true "Данные регистрации админа"
 // @Success      201 {object} service.AuthResponse "Успешная регистрация"
-// @Failure      400 {object} map[string]string "Ошибка валидации"
-// @Failure      403 {object} map[string]string "Неверный секретный ключ"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      403 {object} apperror.ErrorResponse
+// @Failure      409 {object} apperror.ErrorResponse
 // @Router       /auth/register/admin [post]
 func (h *AuthHandler) RegisterAdmin(c *gin.Context) {
 	var req service.RegisterAdminRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if resp, ok := apperror.FromValidation(err); ok {
+			c.JSON(http.StatusBadRequest, resp)
+			return
+		}
+		c.JSON(http.StatusBadRequest, apperror.One("VALIDATION_ERROR", err.Error()))
 		return
 	}
 
 	resp, err := h.authService.RegisterAdmin(&req)
 	if err != nil {
-		if err.Error() == "invalid admin secret key" {
-			c.JSON(403, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrInvalidAdminSecret) {
+			c.JSON(http.StatusForbidden, apperror.One("INVALID_ADMIN_SECRET", "Invalid admin secret key"))
 			return
 		}
-		c.JSON(400, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrEmailAlreadyExists) {
+			c.JSON(http.StatusConflict, apperror.One("EMAIL_ALREADY_EXISTS", "User with this email already exists"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to create account"))
 		return
 	}
 
-	c.JSON(201, resp)
+	c.JSON(http.StatusCreated, resp)
 }
 
 // Login godoc
@@ -105,23 +135,31 @@ func (h *AuthHandler) RegisterAdmin(c *gin.Context) {
 // @Produce      json
 // @Param        request body service.LoginRequest true "Данные для входа"
 // @Success      200 {object} service.AuthResponse "Успешный вход"
-// @Failure      400 {object} map[string]string "Ошибка валидации"
-// @Failure      401 {object} map[string]string "Неверный email или пароль"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      401 {object} apperror.ErrorResponse
 // @Router       /auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req service.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if resp, ok := apperror.FromValidation(err); ok {
+			c.JSON(http.StatusBadRequest, resp)
+			return
+		}
+		c.JSON(http.StatusBadRequest, apperror.One("VALIDATION_ERROR", err.Error()))
 		return
 	}
 
 	resp, err := h.authService.Login(&req)
 	if err != nil {
-		c.JSON(401, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrInvalidCredentials) {
+			c.JSON(http.StatusUnauthorized, apperror.One("INVALID_CREDENTIALS", "Invalid email or password"))
+			return
+		}
+		c.JSON(http.StatusUnauthorized, apperror.One("INVALID_CREDENTIALS", "Invalid email or password"))
 		return
 	}
 
-	c.JSON(200, resp)
+	c.JSON(http.StatusOK, resp)
 }
 
 // RefreshToken godoc
@@ -132,20 +170,20 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Produce      json
 // @Param        request body service.RefreshTokenRequest true "Refresh token"
 // @Success      200 {object} service.RefreshTokenResponse "Новый access token"
-// @Failure      400 {object} map[string]string "Ошибка валидации"
-// @Failure      401 {object} map[string]string "Невалидный refresh token"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      401 {object} apperror.ErrorResponse
 // @Router       /auth/refresh [post]
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	var input service.RefreshTokenRequest
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(400, gin.H{"error": "refresh_token is required"})
+		c.JSON(http.StatusBadRequest, apperror.One("FIELD_REQUIRED", "refresh_token is required"))
 		return
 	}
 
 	newAccessToken, err := h.authService.RefreshAccessToken(input.RefreshToken)
 	if err != nil {
-		c.JSON(401, gin.H{"error": err.Error()})
+		c.JSON(http.StatusUnauthorized, apperror.One("INVALID_REFRESH_TOKEN", "Invalid or expired refresh token"))
 		return
 	}
 
@@ -155,7 +193,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		ExpiresIn:   900,
 	}
 
-	c.JSON(200, resp)
+	c.JSON(http.StatusOK, resp)
 }
 
 // Logout godoc
@@ -166,23 +204,22 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 // @Produce      json
 // @Param        request body service.LogoutRequest true "Refresh token"
 // @Success      200 {object} map[string]string "Успешный выход"
-// @Failure      400 {object} map[string]string "Ошибка валидации"
+// @Failure      400 {object} apperror.ErrorResponse
 // @Router       /auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
 	var input service.LogoutRequest
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(400, gin.H{"error": "refresh_token is required"})
+		c.JSON(http.StatusBadRequest, apperror.One("FIELD_REQUIRED", "refresh_token is required"))
 		return
 	}
 
-	err := h.authService.Logout(input.RefreshToken)
-	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+	if err := h.authService.Logout(input.RefreshToken); err != nil {
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_REFRESH_TOKEN", "Invalid or expired refresh token"))
 		return
 	}
 
-	c.JSON(200, gin.H{"message": "Successfully logged out"})
+	c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out"})
 }
 
 // LogoutAll godoc
@@ -193,22 +230,20 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Success      200 {object} map[string]string "Успешный выход со всех устройств"
-// @Failure      401 {object} map[string]string "Неавторизован"
-// @Failure      500 {object} map[string]string "Ошибка сервера"
+// @Failure      401 {object} apperror.ErrorResponse
+// @Failure      500 {object} apperror.ErrorResponse
 // @Router       /auth/logout-all [post]
 func (h *AuthHandler) LogoutAll(c *gin.Context) {
-	// Получить user_id из контекста (установлен middleware)
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
-	err := h.authService.LogoutAll(userID.(int))
-	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to logout from all devices"})
+	if err := h.authService.LogoutAll(userID.(int)); err != nil {
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to logout from all devices"))
 		return
 	}
 
-	c.JSON(200, gin.H{"message": "Successfully logged out from all devices"})
+	c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out from all devices"})
 }

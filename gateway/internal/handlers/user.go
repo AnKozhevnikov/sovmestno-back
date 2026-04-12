@@ -18,13 +18,13 @@ func UserHandler(c *gin.Context) {
 
 	serviceURL := os.Getenv("USER_SERVICE_URL")
 	if serviceURL == "" {
-		c.JSON(503, gin.H{"error": "User service not configured"})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "User service not configured"))
 		return
 	}
 
 	targetURL, err := url.Parse(serviceURL)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Invalid target URL"})
+		c.JSON(500, errResponse("INTERNAL_ERROR", "Invalid target URL"))
 		return
 	}
 
@@ -48,10 +48,7 @@ func UserHandler(c *gin.Context) {
 	}
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		c.JSON(503, gin.H{
-			"error":   "Service temporarily unavailable",
-			"details": err.Error(),
-		})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "Service temporarily unavailable"))
 	}
 
 	proxy.ServeHTTP(c.Writer, c.Request)
@@ -64,13 +61,13 @@ func createProxyHandler(serviceURLEnv, pathPrefix string) gin.HandlerFunc {
 
 		serviceURL := os.Getenv(serviceURLEnv)
 		if serviceURL == "" {
-			c.JSON(503, gin.H{"error": fmt.Sprintf("%s not configured", serviceURLEnv)})
+			c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "Service not configured"))
 			return
 		}
 
 		targetURL, err := url.Parse(serviceURL)
 		if err != nil {
-			c.JSON(500, gin.H{"error": "Invalid target URL"})
+			c.JSON(500, errResponse("INTERNAL_ERROR", "Invalid target URL"))
 			return
 		}
 
@@ -97,10 +94,7 @@ func createProxyHandler(serviceURLEnv, pathPrefix string) gin.HandlerFunc {
 		}
 
 		proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-			c.JSON(503, gin.H{
-				"error":   "Service temporarily unavailable",
-				"details": err.Error(),
-			})
+			c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "Service temporarily unavailable"))
 		}
 
 		proxy.ServeHTTP(c.Writer, c.Request)
@@ -111,13 +105,13 @@ func createProxyHandler(serviceURLEnv, pathPrefix string) gin.HandlerFunc {
 func RefreshTokenHandler(c *gin.Context) {
 	serviceURL := os.Getenv("USER_SERVICE_URL")
 	if serviceURL == "" {
-		c.JSON(503, gin.H{"error": "User service not configured"})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "User service not configured"))
 		return
 	}
 
 	targetURL, err := url.Parse(serviceURL + "/auth/refresh")
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Invalid target URL"})
+		c.JSON(500, errResponse("INTERNAL_ERROR", "Invalid target URL"))
 		return
 	}
 
@@ -134,10 +128,7 @@ func RefreshTokenHandler(c *gin.Context) {
 	}
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		c.JSON(503, gin.H{
-			"error":   "Service temporarily unavailable",
-			"details": err.Error(),
-		})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "Service temporarily unavailable"))
 	}
 
 	proxy.ServeHTTP(c.Writer, c.Request)
@@ -147,13 +138,13 @@ func RefreshTokenHandler(c *gin.Context) {
 func LogoutHandler(c *gin.Context) {
 	serviceURL := os.Getenv("USER_SERVICE_URL")
 	if serviceURL == "" {
-		c.JSON(503, gin.H{"error": "User service not configured"})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "User service not configured"))
 		return
 	}
 
 	targetURL, err := url.Parse(serviceURL + "/auth/logout")
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Invalid target URL"})
+		c.JSON(500, errResponse("INTERNAL_ERROR", "Invalid target URL"))
 		return
 	}
 
@@ -170,10 +161,7 @@ func LogoutHandler(c *gin.Context) {
 	}
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		c.JSON(503, gin.H{
-			"error":   "Service temporarily unavailable",
-			"details": err.Error(),
-		})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "Service temporarily unavailable"))
 	}
 
 	proxy.ServeHTTP(c.Writer, c.Request)
@@ -183,13 +171,13 @@ func LogoutHandler(c *gin.Context) {
 func LogoutAllHandler(c *gin.Context) {
 	serviceURL := os.Getenv("USER_SERVICE_URL")
 	if serviceURL == "" {
-		c.JSON(503, gin.H{"error": "User service not configured"})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "User service not configured"))
 		return
 	}
 
 	targetURL, err := url.Parse(serviceURL + "/auth/logout-all")
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Invalid target URL"})
+		c.JSON(500, errResponse("INTERNAL_ERROR", "Invalid target URL"))
 		return
 	}
 
@@ -204,7 +192,6 @@ func LogoutAllHandler(c *gin.Context) {
 		originalDirector(req)
 		req.URL.Path = "/auth/logout-all"
 
-		// Передаем user_id и role из контекста
 		if userID, exists := c.Get("user_id"); exists {
 			req.Header.Set("X-User-ID", strconv.Itoa(userID.(int)))
 		}
@@ -214,10 +201,7 @@ func LogoutAllHandler(c *gin.Context) {
 	}
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		c.JSON(503, gin.H{
-			"error":   "Service temporarily unavailable",
-			"details": err.Error(),
-		})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "Service temporarily unavailable"))
 	}
 
 	proxy.ServeHTTP(c.Writer, c.Request)

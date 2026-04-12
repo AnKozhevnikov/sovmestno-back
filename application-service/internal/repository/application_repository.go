@@ -2,10 +2,15 @@ package repository
 
 import (
 	"application-service/internal/models"
+	"errors"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
 )
+
+var ErrDuplicatePendingApplication = errors.New("pending application already exists for this event")
+var ErrMirrorApplicationExists = errors.New("incoming application already exists for this event, check your applications")
 
 // Event — локальная структура для обновления флагов события напрямую в общей БД
 type Event struct {
@@ -25,8 +30,21 @@ func NewApplicationRepository(db *gorm.DB) *ApplicationRepository {
 	return &ApplicationRepository{db: db}
 }
 
+func (r *ApplicationRepository) HasMirrorPendingApplication(senderID, receiverID, eventID int) (bool, error) {
+	var count int64
+	err := r.db.Model(&models.Application{}).
+		Where("event_id = ? AND status = 'pending' AND sender_id = ? AND receiver_id = ?",
+			eventID, receiverID, senderID).
+		Count(&count).Error
+	return count > 0, err
+}
+
 func (r *ApplicationRepository) CreateApplication(app *models.Application) error {
-	return r.db.Create(app).Error
+	err := r.db.Create(app).Error
+	if err != nil && strings.Contains(err.Error(), "uq_application_pending") {
+		return ErrDuplicatePendingApplication
+	}
+	return err
 }
 
 func (r *ApplicationRepository) GetApplicationByID(id int) (*models.Application, error) {

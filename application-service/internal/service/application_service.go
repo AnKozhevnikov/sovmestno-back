@@ -3,8 +3,8 @@ package service
 import (
 	"application-service/internal/models"
 	"application-service/internal/repository"
-	"errors"
 )
+
 
 type ApplicationService struct {
 	repo *repository.ApplicationRepository
@@ -23,7 +23,15 @@ type CreateApplicationRequest struct {
 
 func (s *ApplicationService) CreateApplication(req *CreateApplicationRequest, senderID int, senderType string) (*models.Application, error) {
 	if senderID == req.ReceiverID && senderType == req.ReceiverType {
-		return nil, errors.New("cannot send application to yourself")
+		return nil, ErrCannotApplyToSelf
+	}
+
+	mirror, err := s.repo.HasMirrorPendingApplication(senderID, req.ReceiverID, req.EventID)
+	if err != nil {
+		return nil, err
+	}
+	if mirror {
+		return nil, ErrMirrorApplicationExists
 	}
 
 	app := &models.Application{
@@ -50,7 +58,7 @@ func (s *ApplicationService) GetApplicationByID(id int, userID int) (*models.App
 	}
 
 	if app.SenderID != userID && app.ReceiverID != userID {
-		return nil, errors.New("access denied: you are not involved in this application")
+		return nil, ErrAccessDenied
 	}
 
 	return app, nil
@@ -74,11 +82,11 @@ func (s *ApplicationService) AcceptApplication(id int, userID int) (*models.Appl
 	}
 
 	if app.ReceiverID != userID {
-		return nil, errors.New("access denied: only receiver can accept application")
+		return nil, ErrAccessDenied
 	}
 
 	if app.Status != "pending" {
-		return nil, errors.New("cannot accept already processed application")
+		return nil, ErrApplicationAlreadyProcessed
 	}
 
 	app.Status = "accepted"
@@ -119,11 +127,11 @@ func (s *ApplicationService) RejectApplication(id int, userID int) (*models.Appl
 	}
 
 	if app.ReceiverID != userID {
-		return nil, errors.New("access denied: only receiver can reject application")
+		return nil, ErrAccessDenied
 	}
 
 	if app.Status != "pending" {
-		return nil, errors.New("cannot reject already processed application")
+		return nil, ErrApplicationAlreadyProcessed
 	}
 
 	app.Status = "rejected"
@@ -141,7 +149,7 @@ func (s *ApplicationService) GetCollaborationByID(id int, userID int) (*models.C
 	}
 
 	if collab.CreatorUserID != userID && collab.VenueUserID != userID {
-		return nil, errors.New("access denied: you are not involved in this collaboration")
+		return nil, ErrAccessDenied
 	}
 
 	return collab, nil
@@ -150,7 +158,7 @@ func (s *ApplicationService) GetCollaborationByID(id int, userID int) (*models.C
 // CompleteCollaboration — creator подтверждает, что мероприятие состоялось.
 func (s *ApplicationService) CompleteCollaboration(id int, userID int, userRole string) (*models.Collaboration, error) {
 	if userRole != "creator" {
-		return nil, errors.New("access denied: only creators can complete collaborations")
+		return nil, ErrAccessDenied
 	}
 
 	collab, err := s.repo.GetCollaborationByID(id)
@@ -159,11 +167,11 @@ func (s *ApplicationService) CompleteCollaboration(id int, userID int, userRole 
 	}
 
 	if collab.CreatorUserID != userID {
-		return nil, errors.New("access denied: you are not the creator in this collaboration")
+		return nil, ErrAccessDenied
 	}
 
 	if collab.Status != "pending" {
-		return nil, errors.New("can only complete pending collaborations")
+		return nil, ErrCollaborationAlreadyProcessed
 	}
 
 	if err := s.repo.CompleteCollaborationTx(collab.ID, collab.EventID); err != nil {
@@ -177,7 +185,7 @@ func (s *ApplicationService) CompleteCollaboration(id int, userID int, userRole 
 // CancelCollaboration — creator сообщает, что мероприятие не состоялось.
 func (s *ApplicationService) CancelCollaboration(id int, userID int, userRole string) error {
 	if userRole != "creator" {
-		return errors.New("access denied: only creators can cancel collaborations")
+		return ErrAccessDenied
 	}
 
 	collab, err := s.repo.GetCollaborationByID(id)
@@ -186,11 +194,11 @@ func (s *ApplicationService) CancelCollaboration(id int, userID int, userRole st
 	}
 
 	if collab.CreatorUserID != userID {
-		return errors.New("access denied: you are not the creator in this collaboration")
+		return ErrAccessDenied
 	}
 
 	if collab.Status != "pending" {
-		return errors.New("can only cancel pending collaborations")
+		return ErrCollaborationAlreadyProcessed
 	}
 
 	return s.repo.CancelCollaborationTx(collab.ID)
@@ -218,11 +226,11 @@ func (s *ApplicationService) DeleteApplication(id int, userID int) error {
 	}
 
 	if app.SenderID != userID {
-		return errors.New("access denied: only sender can delete application")
+		return ErrAccessDenied
 	}
 
 	if app.Status != "pending" {
-		return errors.New("cannot delete already processed application")
+		return ErrApplicationAlreadyProcessed
 	}
 
 	return s.repo.DeleteApplication(id)

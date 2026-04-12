@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"event-service/internal/apperror"
 	"net/http"
 	"strconv"
 
@@ -11,21 +12,21 @@ func ExtractUserContext() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userIDStr := c.GetHeader("X-User-ID")
 		if userIDStr == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "X-User-ID header is required"})
+			c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Missing user context"))
 			c.Abort()
 			return
 		}
 
 		userID, err := strconv.Atoi(userIDStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid X-User-ID header"})
+			c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Invalid user ID"))
 			c.Abort()
 			return
 		}
 
 		role := c.GetHeader("X-User-Role")
 		if role == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "X-User-Role header is required"})
+			c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Missing user role"))
 			c.Abort()
 			return
 		}
@@ -40,7 +41,7 @@ func RequireRole(allowedRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, exists := c.Get("role")
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Role not found in context"})
+			c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Role not found in context"))
 			c.Abort()
 			return
 		}
@@ -53,7 +54,7 @@ func RequireRole(allowedRoles ...string) gin.HandlerFunc {
 			}
 		}
 
-		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied: insufficient permissions"})
+		c.JSON(http.StatusForbidden, apperror.One("ACCESS_DENIED", "Insufficient permissions"))
 		c.Abort()
 	}
 }

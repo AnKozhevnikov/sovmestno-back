@@ -75,12 +75,9 @@ func main() {
 		eventsCreator.DELETE("/:id", eventHandler.DeleteEvent)
 	}
 
-	categories := r.Group("/categories")
-	categories.Use(middleware.ExtractUserContext())
-	{
-		categories.GET("", categoryHandler.ListCategories)
-		categories.GET("/:id", categoryHandler.GetCategory)
-	}
+	// Публичные ручки категорий — без авторизации
+	r.GET("/categories", categoryHandler.ListCategories)
+	r.GET("/categories/:id", categoryHandler.GetCategory)
 
 	categoriesAdmin := r.Group("/categories")
 	categoriesAdmin.Use(middleware.ExtractUserContext(), middleware.RequireRole("admin"))

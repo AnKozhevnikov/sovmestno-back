@@ -17,13 +17,13 @@ func ApplicationHandler(c *gin.Context) {
 
 	serviceURL := os.Getenv("APPLICATION_SERVICE_URL")
 	if serviceURL == "" {
-		c.JSON(503, gin.H{"error": "Application service not configured"})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "Application service not configured"))
 		return
 	}
 
 	targetURL, err := url.Parse(serviceURL)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Invalid target URL"})
+		c.JSON(500, errResponse("INTERNAL_ERROR", "Invalid target URL"))
 		return
 	}
 
@@ -51,10 +51,7 @@ func ApplicationHandler(c *gin.Context) {
 	}
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		c.JSON(503, gin.H{
-			"error":   "Service temporarily unavailable",
-			"details": err.Error(),
-		})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "Service temporarily unavailable"))
 	}
 
 	proxy.ServeHTTP(c.Writer, c.Request)
@@ -63,13 +60,13 @@ func ApplicationHandler(c *gin.Context) {
 func ApplicationSwaggerHandler(c *gin.Context) {
 	serviceURL := os.Getenv("APPLICATION_SERVICE_URL")
 	if serviceURL == "" {
-		c.JSON(503, gin.H{"error": "Application service not configured"})
+		c.JSON(503, errResponse("SERVICE_UNAVAILABLE", "Application service not configured"))
 		return
 	}
 
 	targetURL, err := url.Parse(serviceURL)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Invalid target URL"})
+		c.JSON(500, errResponse("INTERNAL_ERROR", "Invalid target URL"))
 		return
 	}
 

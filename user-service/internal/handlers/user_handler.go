@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
+	"user-service/internal/apperror"
 	"user-service/internal/middleware"
 	"user-service/internal/service"
 
@@ -32,29 +35,38 @@ func NewUserHandler(userService *service.UserService, imageService *service.Imag
 // @Security     BearerAuth
 // @Param        request body service.CreateCreatorRequest true "Данные профиля создателя"
 // @Success      201 {object} models.Creator "Профиль создателя создан"
-// @Failure      400 {object} map[string]string "Ошибка валидации или профиль уже существует"
-// @Failure      401 {object} map[string]string "Не авторизован"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      401 {object} apperror.ErrorResponse
+// @Failure      409 {object} apperror.ErrorResponse
 // @Router       /users/creators [post]
 func (h *UserHandler) CreateCreator(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	var req service.CreateCreatorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if resp, ok := apperror.FromValidation(err); ok {
+			c.JSON(http.StatusBadRequest, resp)
+			return
+		}
+		c.JSON(http.StatusBadRequest, apperror.One("VALIDATION_ERROR", err.Error()))
 		return
 	}
 
 	creator, err := h.userService.CreateCreator(userID, &req)
 	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrProfileAlreadyExists) {
+			c.JSON(http.StatusConflict, apperror.One("PROFILE_ALREADY_EXISTS", "Creator profile already exists for this user"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to create creator profile"))
 		return
 	}
 
-	c.JSON(201, creator)
+	c.JSON(http.StatusCreated, creator)
 }
 
 // GetCreator godoc
@@ -65,23 +77,23 @@ func (h *UserHandler) CreateCreator(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        user_id path int true "User ID"
 // @Success      200 {object} models.Creator "Профиль создателя"
-// @Failure      400 {object} map[string]string "Некорректный ID"
-// @Failure      404 {object} map[string]string "Создатель не найден"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      404 {object} apperror.ErrorResponse
 // @Router       /users/creators/{user_id} [get]
 func (h *UserHandler) GetCreator(c *gin.Context) {
 	userID, err := strconv.Atoi(c.Param("user_id"))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Invalid ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid user ID"))
 		return
 	}
 
 	creator, err := h.userService.GetCreatorByUserID(userID)
 	if err != nil {
-		c.JSON(404, gin.H{"error": "Creator not found"})
+		c.JSON(http.StatusNotFound, apperror.One("CREATOR_NOT_FOUND", "Creator not found"))
 		return
 	}
 
-	c.JSON(200, creator)
+	c.JSON(http.StatusOK, creator)
 }
 
 // GetMe godoc
@@ -91,23 +103,27 @@ func (h *UserHandler) GetCreator(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Success      200 {object} map[string]interface{} "Профиль пользователя с ролью и данными профиля"
-// @Failure      401 {object} map[string]string "Не авторизован"
-// @Failure      404 {object} map[string]string "Профиль не найден"
+// @Failure      401 {object} apperror.ErrorResponse
+// @Failure      404 {object} apperror.ErrorResponse
 // @Router       /users/me [get]
 func (h *UserHandler) GetMe(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	profile, err := h.userService.GetMyProfile(userID)
 	if err != nil {
-		c.JSON(404, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrCreatorNotFound) || errors.Is(err, service.ErrVenueNotFound) || errors.Is(err, service.ErrUserNotFound) {
+			c.JSON(http.StatusNotFound, apperror.One("PROFILE_NOT_FOUND", "Profile not found"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to fetch profile"))
 		return
 	}
 
-	c.JSON(200, profile)
+	c.JSON(http.StatusOK, profile)
 }
 
 // UpdateCreator godoc
@@ -118,37 +134,47 @@ func (h *UserHandler) GetMe(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        user_id path int true "User ID"
-// @Param        request body service.CreateCreatorRequest true "Обновленные данные профиля"
+// @Param        request body service.UpdateCreatorRequest true "Обновленные данные профиля"
 // @Success      200 {object} models.Creator "Профиль обновлен"
-// @Failure      400 {object} map[string]string "Ошибка валидации или запрещено редактировать чужой профиль"
-// @Failure      401 {object} map[string]string "Не авторизован"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      401 {object} apperror.ErrorResponse
+// @Failure      403 {object} apperror.ErrorResponse
+// @Failure      404 {object} apperror.ErrorResponse
 // @Router       /users/creators/{user_id} [put]
 func (h *UserHandler) UpdateCreator(c *gin.Context) {
 	currentUserID, ok := middleware.GetUserID(c)
 	if !ok {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	targetUserID, err := strconv.Atoi(c.Param("user_id"))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Invalid ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid user ID"))
 		return
 	}
 
 	var req service.UpdateCreatorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if resp, ok := apperror.FromValidation(err); ok {
+			c.JSON(http.StatusBadRequest, resp)
+			return
+		}
+		c.JSON(http.StatusBadRequest, apperror.One("VALIDATION_ERROR", err.Error()))
 		return
 	}
 
 	creator, err := h.userService.UpdateCreatorByUserID(targetUserID, currentUserID, &req)
 	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrAccessDenied) {
+			c.JSON(http.StatusForbidden, apperror.One("ACCESS_DENIED", "You can only edit your own profile"))
+			return
+		}
+		c.JSON(http.StatusNotFound, apperror.One("CREATOR_NOT_FOUND", "Creator not found"))
 		return
 	}
 
-	c.JSON(200, creator)
+	c.JSON(http.StatusOK, creator)
 }
 
 // DeleteCreator godoc
@@ -158,28 +184,33 @@ func (h *UserHandler) UpdateCreator(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        user_id path int true "User ID"
 // @Success      204 "Профиль удален"
-// @Failure      400 {object} map[string]string "Некорректный ID или запрещено удалять чужой профиль"
-// @Failure      401 {object} map[string]string "Не авторизован"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      401 {object} apperror.ErrorResponse
+// @Failure      403 {object} apperror.ErrorResponse
 // @Router       /users/creators/{user_id} [delete]
 func (h *UserHandler) DeleteCreator(c *gin.Context) {
 	currentUserID, ok := middleware.GetUserID(c)
 	if !ok {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	targetUserID, err := strconv.Atoi(c.Param("user_id"))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Invalid ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid user ID"))
 		return
 	}
 
 	if err := h.userService.DeleteCreatorByUserID(targetUserID, currentUserID); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrAccessDenied) {
+			c.JSON(http.StatusForbidden, apperror.One("ACCESS_DENIED", "You can only delete your own profile"))
+			return
+		}
+		c.JSON(http.StatusNotFound, apperror.One("CREATOR_NOT_FOUND", "Creator not found"))
 		return
 	}
 
-	c.JSON(204, nil)
+	c.JSON(http.StatusNoContent, nil)
 }
 
 // ListCreators godoc
@@ -191,7 +222,7 @@ func (h *UserHandler) DeleteCreator(c *gin.Context) {
 // @Param        limit query int false "Количество элементов (по умолчанию 20, максимум 100)"
 // @Param        offset query int false "Смещение (по умолчанию 0)"
 // @Success      200 {object} map[string]interface{} "Список создателей"
-// @Failure      500 {object} map[string]string "Ошибка сервера"
+// @Failure      500 {object} apperror.ErrorResponse
 // @Router       /users/creators [get]
 func (h *UserHandler) ListCreators(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -199,11 +230,11 @@ func (h *UserHandler) ListCreators(c *gin.Context) {
 
 	creators, err := h.userService.ListCreators(limit, offset)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to fetch creators"})
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to fetch creators"))
 		return
 	}
 
-	c.JSON(200, gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"creators": creators,
 		"limit":    limit,
 		"offset":   offset,
@@ -221,29 +252,38 @@ func (h *UserHandler) ListCreators(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        request body service.CreateVenueRequest true "Данные профиля площадки"
 // @Success      201 {object} models.Venue "Профиль площадки создан"
-// @Failure      400 {object} map[string]string "Ошибка валидации или профиль уже существует"
-// @Failure      401 {object} map[string]string "Не авторизован"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      401 {object} apperror.ErrorResponse
+// @Failure      409 {object} apperror.ErrorResponse
 // @Router       /users/venues [post]
 func (h *UserHandler) CreateVenue(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	var req service.CreateVenueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if resp, ok := apperror.FromValidation(err); ok {
+			c.JSON(http.StatusBadRequest, resp)
+			return
+		}
+		c.JSON(http.StatusBadRequest, apperror.One("VALIDATION_ERROR", err.Error()))
 		return
 	}
 
 	venue, err := h.userService.CreateVenue(userID, &req)
 	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrProfileAlreadyExists) {
+			c.JSON(http.StatusConflict, apperror.One("PROFILE_ALREADY_EXISTS", "Venue profile already exists for this user"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to create venue profile"))
 		return
 	}
 
-	c.JSON(201, venue)
+	c.JSON(http.StatusCreated, venue)
 }
 
 // GetVenue godoc
@@ -254,23 +294,23 @@ func (h *UserHandler) CreateVenue(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        user_id path int true "User ID"
 // @Success      200 {object} models.Venue "Профиль площадки"
-// @Failure      400 {object} map[string]string "Некорректный ID"
-// @Failure      404 {object} map[string]string "Площадка не найдена"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      404 {object} apperror.ErrorResponse
 // @Router       /users/venues/{user_id} [get]
 func (h *UserHandler) GetVenue(c *gin.Context) {
 	userID, err := strconv.Atoi(c.Param("user_id"))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Invalid ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid user ID"))
 		return
 	}
 
 	venue, err := h.userService.GetVenueByUserID(userID)
 	if err != nil {
-		c.JSON(404, gin.H{"error": "Venue not found"})
+		c.JSON(http.StatusNotFound, apperror.One("VENUE_NOT_FOUND", "Venue not found"))
 		return
 	}
 
-	c.JSON(200, venue)
+	c.JSON(http.StatusOK, venue)
 }
 
 // ListVenues godoc
@@ -282,7 +322,7 @@ func (h *UserHandler) GetVenue(c *gin.Context) {
 // @Param        limit query int false "Количество элементов (по умолчанию 20, максимум 100)"
 // @Param        offset query int false "Смещение (по умолчанию 0)"
 // @Success      200 {object} map[string]interface{} "Список площадок"
-// @Failure      500 {object} map[string]string "Ошибка сервера"
+// @Failure      500 {object} apperror.ErrorResponse
 // @Router       /users/venues [get]
 func (h *UserHandler) ListVenues(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -290,11 +330,11 @@ func (h *UserHandler) ListVenues(c *gin.Context) {
 
 	venues, err := h.userService.ListVenues(limit, offset)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to fetch venues"})
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to fetch venues"))
 		return
 	}
 
-	c.JSON(200, gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"venues": venues,
 		"limit":  limit,
 		"offset": offset,
@@ -309,37 +349,47 @@ func (h *UserHandler) ListVenues(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        user_id path int true "User ID"
-// @Param        request body service.CreateVenueRequest true "Обновленные данные профиля"
+// @Param        request body service.UpdateVenueRequest true "Обновленные данные профиля"
 // @Success      200 {object} models.Venue "Профиль обновлен"
-// @Failure      400 {object} map[string]string "Ошибка валидации или запрещено редактировать чужой профиль"
-// @Failure      401 {object} map[string]string "Не авторизован"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      401 {object} apperror.ErrorResponse
+// @Failure      403 {object} apperror.ErrorResponse
+// @Failure      404 {object} apperror.ErrorResponse
 // @Router       /users/venues/{user_id} [put]
 func (h *UserHandler) UpdateVenue(c *gin.Context) {
 	currentUserID, ok := middleware.GetUserID(c)
 	if !ok {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	targetUserID, err := strconv.Atoi(c.Param("user_id"))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Invalid ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid user ID"))
 		return
 	}
 
 	var req service.UpdateVenueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if resp, ok := apperror.FromValidation(err); ok {
+			c.JSON(http.StatusBadRequest, resp)
+			return
+		}
+		c.JSON(http.StatusBadRequest, apperror.One("VALIDATION_ERROR", err.Error()))
 		return
 	}
 
 	venue, err := h.userService.UpdateVenueByUserID(targetUserID, currentUserID, &req)
 	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrAccessDenied) {
+			c.JSON(http.StatusForbidden, apperror.One("ACCESS_DENIED", "You can only edit your own profile"))
+			return
+		}
+		c.JSON(http.StatusNotFound, apperror.One("VENUE_NOT_FOUND", "Venue not found"))
 		return
 	}
 
-	c.JSON(200, venue)
+	c.JSON(http.StatusOK, venue)
 }
 
 // DeleteVenue godoc
@@ -349,28 +399,33 @@ func (h *UserHandler) UpdateVenue(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        user_id path int true "User ID"
 // @Success      204 "Профиль удален"
-// @Failure      400 {object} map[string]string "Некорректный ID или запрещено удалять чужой профиль"
-// @Failure      401 {object} map[string]string "Не авторизован"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      401 {object} apperror.ErrorResponse
+// @Failure      403 {object} apperror.ErrorResponse
 // @Router       /users/venues/{user_id} [delete]
 func (h *UserHandler) DeleteVenue(c *gin.Context) {
 	currentUserID, ok := middleware.GetUserID(c)
 	if !ok {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	targetUserID, err := strconv.Atoi(c.Param("user_id"))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Invalid ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid user ID"))
 		return
 	}
 
 	if err := h.userService.DeleteVenueByUserID(targetUserID, currentUserID); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrAccessDenied) {
+			c.JSON(http.StatusForbidden, apperror.One("ACCESS_DENIED", "You can only delete your own profile"))
+			return
+		}
+		c.JSON(http.StatusNotFound, apperror.One("VENUE_NOT_FOUND", "Venue not found"))
 		return
 	}
 
-	c.JSON(204, nil)
+	c.JSON(http.StatusNoContent, nil)
 }
 
 // AddCreatorPhoto godoc
@@ -382,14 +437,14 @@ func (h *UserHandler) DeleteVenue(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        request body map[string]int true "ID изображения" example({"image_id": 1})
 // @Success      201 {object} models.CreatorPhoto "Фото добавлено"
-// @Failure      400 {object} map[string]string "Ошибка валидации"
-// @Failure      401 {object} map[string]string "Не авторизован"
-// @Failure      404 {object} map[string]string "Профиль создателя не найден"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      401 {object} apperror.ErrorResponse
+// @Failure      404 {object} apperror.ErrorResponse
 // @Router       /users/creators/photos [post]
 func (h *UserHandler) AddCreatorPhoto(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
@@ -397,21 +452,25 @@ func (h *UserHandler) AddCreatorPhoto(c *gin.Context) {
 		ImageID int `json:"image_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if resp, ok := apperror.FromValidation(err); ok {
+			c.JSON(http.StatusBadRequest, resp)
+			return
+		}
+		c.JSON(http.StatusBadRequest, apperror.One("VALIDATION_ERROR", err.Error()))
 		return
 	}
 
 	photo, err := h.userService.AddCreatorPhoto(userID, req.ImageID)
 	if err != nil {
-		if err.Error() == "creator profile not found" {
-			c.JSON(404, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrCreatorNotFound) {
+			c.JSON(http.StatusNotFound, apperror.One("CREATOR_NOT_FOUND", "Creator profile not found"))
 			return
 		}
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to add photo"))
 		return
 	}
 
-	c.JSON(201, photo)
+	c.JSON(http.StatusCreated, photo)
 }
 
 // DeleteCreatorPhoto godoc
@@ -421,38 +480,38 @@ func (h *UserHandler) AddCreatorPhoto(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        photo_id path int true "ID записи фото"
 // @Success      204 "Фото удалено"
-// @Failure      400 {object} map[string]string "Некорректный ID"
-// @Failure      401 {object} map[string]string "Не авторизован"
-// @Failure      403 {object} map[string]string "Нет доступа"
-// @Failure      404 {object} map[string]string "Фото не найдено"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      401 {object} apperror.ErrorResponse
+// @Failure      403 {object} apperror.ErrorResponse
+// @Failure      404 {object} apperror.ErrorResponse
 // @Router       /users/creators/photos/{photo_id} [delete]
 func (h *UserHandler) DeleteCreatorPhoto(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	photoID, err := strconv.Atoi(c.Param("photo_id"))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Invalid photo ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid photo ID"))
 		return
 	}
 
 	if err := h.userService.DeleteCreatorPhoto(userID, photoID); err != nil {
-		if err.Error() == "forbidden: not your photo" {
-			c.JSON(403, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrAccessDenied) {
+			c.JSON(http.StatusForbidden, apperror.One("ACCESS_DENIED", "You can only delete your own photos"))
 			return
 		}
-		if err.Error() == "photo not found" || err.Error() == "creator profile not found" {
-			c.JSON(404, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrPhotoNotFound) || errors.Is(err, service.ErrCreatorNotFound) {
+			c.JSON(http.StatusNotFound, apperror.One("PHOTO_NOT_FOUND", "Photo not found"))
 			return
 		}
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to delete photo"))
 		return
 	}
 
-	c.Status(204)
+	c.Status(http.StatusNoContent)
 }
 
 // AddVenuePhoto godoc
@@ -464,14 +523,14 @@ func (h *UserHandler) DeleteCreatorPhoto(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        request body map[string]int true "ID изображения" example({"image_id": 1})
 // @Success      201 {object} models.VenuePhoto "Фото добавлено"
-// @Failure      400 {object} map[string]string "Ошибка валидации"
-// @Failure      401 {object} map[string]string "Не авторизован"
-// @Failure      404 {object} map[string]string "Профиль площадки не найден"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      401 {object} apperror.ErrorResponse
+// @Failure      404 {object} apperror.ErrorResponse
 // @Router       /users/venues/photos [post]
 func (h *UserHandler) AddVenuePhoto(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
@@ -479,21 +538,25 @@ func (h *UserHandler) AddVenuePhoto(c *gin.Context) {
 		ImageID int `json:"image_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if resp, ok := apperror.FromValidation(err); ok {
+			c.JSON(http.StatusBadRequest, resp)
+			return
+		}
+		c.JSON(http.StatusBadRequest, apperror.One("VALIDATION_ERROR", err.Error()))
 		return
 	}
 
 	photo, err := h.userService.AddVenuePhoto(userID, req.ImageID)
 	if err != nil {
-		if err.Error() == "venue profile not found" {
-			c.JSON(404, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrVenueNotFound) {
+			c.JSON(http.StatusNotFound, apperror.One("VENUE_NOT_FOUND", "Venue profile not found"))
 			return
 		}
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to add photo"))
 		return
 	}
 
-	c.JSON(201, photo)
+	c.JSON(http.StatusCreated, photo)
 }
 
 // DeleteVenuePhoto godoc
@@ -503,38 +566,38 @@ func (h *UserHandler) AddVenuePhoto(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        photo_id path int true "ID записи фото"
 // @Success      204 "Фото удалено"
-// @Failure      400 {object} map[string]string "Некорректный ID"
-// @Failure      401 {object} map[string]string "Не авторизован"
-// @Failure      403 {object} map[string]string "Нет доступа"
-// @Failure      404 {object} map[string]string "Фото не найдено"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      401 {object} apperror.ErrorResponse
+// @Failure      403 {object} apperror.ErrorResponse
+// @Failure      404 {object} apperror.ErrorResponse
 // @Router       /users/venues/photos/{photo_id} [delete]
 func (h *UserHandler) DeleteVenuePhoto(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
 	photoID, err := strconv.Atoi(c.Param("photo_id"))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Invalid photo ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid photo ID"))
 		return
 	}
 
 	if err := h.userService.DeleteVenuePhoto(userID, photoID); err != nil {
-		if err.Error() == "forbidden: not your photo" {
-			c.JSON(403, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrAccessDenied) {
+			c.JSON(http.StatusForbidden, apperror.One("ACCESS_DENIED", "You can only delete your own photos"))
 			return
 		}
-		if err.Error() == "photo not found" || err.Error() == "venue profile not found" {
-			c.JSON(404, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrPhotoNotFound) || errors.Is(err, service.ErrVenueNotFound) {
+			c.JSON(http.StatusNotFound, apperror.One("PHOTO_NOT_FOUND", "Photo not found"))
 			return
 		}
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to delete photo"))
 		return
 	}
 
-	c.Status(204)
+	c.Status(http.StatusNoContent)
 }
 
 // UploadImage godoc
@@ -547,39 +610,48 @@ func (h *UserHandler) DeleteVenuePhoto(c *gin.Context) {
 // @Param        file formData file true "Файл изображения (jpg, jpeg, png, gif, webp, максимум 10MB)"
 // @Param        type formData string true "Тип изображения" Enums(avatar, venue-logo, venue-cover, venue-photo, creator-photo, event-cover)
 // @Success      201 {object} models.Image "Изображение загружено"
-// @Failure      400 {object} map[string]string "Ошибка валидации"
-// @Failure      401 {object} map[string]string "Не авторизован"
-// @Failure      500 {object} map[string]string "Ошибка сервера"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      401 {object} apperror.ErrorResponse
+// @Failure      500 {object} apperror.ErrorResponse
 // @Router       /users/upload [post]
 func (h *UserHandler) UploadImage(c *gin.Context) {
 	_, ok := middleware.GetUserID(c)
 	if !ok {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, apperror.One("UNAUTHORIZED", "Unauthorized"))
 		return
 	}
 
-	// Получаем тип изображения
 	imageType := c.PostForm("type")
 	if imageType == "" {
-		c.JSON(400, gin.H{"error": "Image type is required (avatar, venue-logo, venue-cover, venue-photo, event-cover)"})
+		c.JSON(http.StatusBadRequest, apperror.One("FIELD_REQUIRED", "Image type is required (avatar, venue-logo, venue-cover, venue-photo, creator-photo, event-cover)"))
 		return
 	}
 
-	// Получаем файл из формы
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(400, gin.H{"error": "No file provided"})
+		c.JSON(http.StatusBadRequest, apperror.One("FIELD_REQUIRED", "No file provided"))
 		return
 	}
 
-	// Загружаем в MinIO (бакет определяется автоматически по типу)
 	image, err := h.imageService.UploadImage(file, imageType)
 	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		if errors.Is(err, service.ErrInvalidFileType) {
+			c.JSON(http.StatusBadRequest, apperror.One("INVALID_FILE_TYPE", "Invalid file type, allowed: jpg, jpeg, png, gif, webp"))
+			return
+		}
+		if errors.Is(err, service.ErrFileTooLarge) {
+			c.JSON(http.StatusBadRequest, apperror.One("FILE_TOO_LARGE", "File too large, maximum size is 10MB"))
+			return
+		}
+		if errors.Is(err, service.ErrInvalidImageType) {
+			c.JSON(http.StatusBadRequest, apperror.One("INVALID_IMAGE_TYPE", "Invalid image type, allowed: avatar, venue-logo, venue-cover, venue-photo, creator-photo, event-cover"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to upload image"))
 		return
 	}
 
-	c.JSON(201, image)
+	c.JSON(http.StatusCreated, image)
 }
 
 // GetImage godoc
@@ -590,29 +662,26 @@ func (h *UserHandler) UploadImage(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        id path int true "ID изображения"
 // @Success      200 {file} binary "Изображение"
-// @Failure      400 {object} map[string]string "Неверный ID"
-// @Failure      401 {object} map[string]string "Не авторизован"
-// @Failure      404 {object} map[string]string "Изображение не найдено"
+// @Failure      400 {object} apperror.ErrorResponse
+// @Failure      401 {object} apperror.ErrorResponse
+// @Failure      404 {object} apperror.ErrorResponse
 // @Router       /users/images/{id} [get]
 func (h *UserHandler) GetImage(c *gin.Context) {
 	imageID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Invalid image ID"})
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid image ID"))
 		return
 	}
 
-	// Получаем изображение из MinIO
 	image, data, err := h.imageService.GetImage(imageID)
 	if err != nil {
-		c.JSON(404, gin.H{"error": err.Error()})
+		c.JSON(http.StatusNotFound, apperror.One("IMAGE_NOT_FOUND", "Image not found"))
 		return
 	}
 
-	// Устанавливаем заголовки
 	c.Header("Content-Type", image.FileType)
 	c.Header("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", image.FileName))
-	c.Header("Cache-Control", "public, max-age=31536000") // Кеширование на 1 год
+	c.Header("Cache-Control", "public, max-age=31536000")
 
-	// Отправляем данные
-	c.Data(200, image.FileType, data)
+	c.Data(http.StatusOK, image.FileType, data)
 }

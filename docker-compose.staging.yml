@@ -147,6 +147,7 @@ services:
       USER_SERVICE_URL: ${USER_SERVICE_URL}
       EVENT_SERVICE_URL: ${EVENT_SERVICE_URL}
       APPLICATION_SERVICE_URL: ${APPLICATION_SERVICE_URL}
+      ANALYTICS_SERVICE_URL: ${ANALYTICS_SERVICE_URL}
       JWT_SECRET: ${JWT_SECRET}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
       API_HOST: ${API_HOST:-api.sovmestno-test.ru}
@@ -265,6 +266,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_SERVER_ROOT_URL=https://${DOMAIN}/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
     volumes:
       - grafana_data:/var/lib/grafana
     networks:
@@ -290,10 +292,57 @@ services:
       postgres:
         condition: service_healthy
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    container_name: clickhouse
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    environment:
+      CLICKHOUSE_DB: analytics_db
+      CLICKHOUSE_USER: analytics_user
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+    networks:
+      - sovmestno-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  analytics-service:
+    build: ./analytics-service
+    container_name: analytics-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      liquibase:
+        condition: service_completed_successfully
+      clickhouse:
+        condition: service_healthy
+    environment:
+      PORT: ${ANALYTICS_SERVICE_PORT:-8084}
+      DB_DSN: ${DB_DSN}
+      CLICKHOUSE_HOST: clickhouse:9000
+      CLICKHOUSE_DB: analytics_db
+      CLICKHOUSE_USER: analytics_user
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+    networks:
+      - sovmestno-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8084/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+  clickhouse_data:
   letsencrypt_data:
   prometheus_data:
   grafana_data:
