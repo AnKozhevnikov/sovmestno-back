@@ -126,8 +126,10 @@ jobs:
             echo "Creating backup..."
             cd ~/sovmestno-back
 
-            # Load environment variables
-            export $(grep -v '^#' .env | xargs)
+            # Load environment variables (source handles special chars in passwords)
+            set -a
+            source .env
+            set +a
 
             # Backup database
             docker exec postgres pg_dump -U $POSTGRES_USER $POSTGRES_DB > backup_$(date +%Y%m%d_%H%M%S).sql
@@ -261,6 +263,15 @@ jobs:
           else
             echo "✗ User service health check failed"
             ssh ${PROD_SSH_USER}@${PROD_HOST} "docker logs user-service --tail=50"
+            exit 1
+          fi
+
+          echo "Checking analytics-service health..."
+          if ssh ${PROD_SSH_USER}@${PROD_HOST} "timeout 30 docker exec analytics-service wget --no-verbose --tries=1 -O /dev/null http://localhost:8084/health"; then
+            echo "✓ Analytics service is healthy"
+          else
+            echo "✗ Analytics service health check failed"
+            ssh ${PROD_SSH_USER}@${PROD_HOST} "docker logs analytics-service --tail=50"
             exit 1
           fi
 

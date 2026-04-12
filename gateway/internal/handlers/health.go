@@ -53,6 +53,7 @@ func HealthHandler(c *gin.Context) {
 
 			status := "healthy"
 			errMsg := ""
+			isHealthy := true
 
 			client := &http.Client{Timeout: 2 * time.Second}
 			resp, err := client.Get(serviceURL + "/health")
@@ -60,17 +61,20 @@ func HealthHandler(c *gin.Context) {
 			if err != nil {
 				status = "unhealthy"
 				errMsg = err.Error()
-				overallHealthy = false
+				isHealthy = false
 			} else {
 				defer resp.Body.Close()
 				if resp.StatusCode != 200 {
 					status = "unhealthy"
 					errMsg = "non-200 status code"
-					overallHealthy = false
+					isHealthy = false
 				}
 			}
 
 			resultsMutex.Lock()
+			if !isHealthy {
+				overallHealthy = false
+			}
 			healthResults = append(healthResults, ServiceHealth{
 				Name:   serviceName,
 				Status: status,
