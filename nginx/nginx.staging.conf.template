@@ -145,6 +145,10 @@ http {
             # WebSocket support for Grafana live updates
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection "upgrade";
+
+            # Rewrite Grafana redirects to include /grafana/ prefix
+            proxy_redirect http://grafana:3000/ /grafana/;
+            proxy_redirect https://grafana:3000/ /grafana/;
         }
 
         # pgAdmin database management
