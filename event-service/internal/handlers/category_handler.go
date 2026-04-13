@@ -58,7 +58,6 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 // @Success 200 {object} models.Category
 // @Failure 400 {object} apperror.ErrorResponse
 // @Failure 404 {object} apperror.ErrorResponse
-// @Security BearerAuth
 // @Router /categories/{id} [get]
 func (h *CategoryHandler) GetCategory(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
@@ -83,7 +82,6 @@ func (h *CategoryHandler) GetCategory(c *gin.Context) {
 // @Produce json
 // @Success 200 {array} models.Category
 // @Failure 500 {object} apperror.ErrorResponse
-// @Security BearerAuth
 // @Router /categories [get]
 func (h *CategoryHandler) ListCategories(c *gin.Context) {
 	categories, err := h.categoryService.ListCategories()

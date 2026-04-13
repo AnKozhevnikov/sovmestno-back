@@ -3,6 +3,7 @@ package middleware
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -20,7 +21,8 @@ func errorResponse(code, message string) gin.H {
 
 func AuthMiddleware(c *gin.Context) {
 	path := c.Request.URL.Path
-	if isPublicRoute(path) {
+	method := c.Request.Method
+	if isPublicRoute(path, method) {
 		c.Next()
 		return
 	}
@@ -44,11 +46,11 @@ func AuthMiddleware(c *gin.Context) {
 	c.Next()
 }
 
-func isPublicRoute(path string) bool {
+func isPublicRoute(path, method string) bool {
 	publicRoutes := map[string]bool{
-		"/health":              true,
-		"/swagger":             true,
-		"/swagger/index.html":  true,
+		"/health":             true,
+		"/swagger":            true,
+		"/swagger/index.html": true,
 	}
 
 	if publicRoutes[path] {
@@ -62,7 +64,6 @@ func isPublicRoute(path string) bool {
 		"/swagger-user/",
 		"/swagger-event/",
 		"/swagger-application/",
-		"/api/event/categories",
 	}
 
 	for _, prefix := range allowedPrefixes {
@@ -72,6 +73,12 @@ func isPublicRoute(path string) bool {
 	}
 
 	if path == "/api/auth" || path == "/api/user/auth" {
+		return true
+	}
+
+	// GET /api/event/categories и /api/event/categories/:id — публичные
+	// POST/PUT/DELETE требуют токен (только admin)
+	if method == http.MethodGet && strings.HasPrefix(path, "/api/event/categories") {
 		return true
 	}
 
