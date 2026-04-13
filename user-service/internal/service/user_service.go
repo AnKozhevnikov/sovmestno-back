@@ -57,31 +57,31 @@ func (s *UserService) GetMyProfile(userID int) (map[string]interface{}, error) {
 // Creator operations
 
 type CreateCreatorRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Description string `json:"description"`
+	Name        string `json:"name" binding:"required,min=2,max=100"`
+	Description string `json:"description" binding:"omitempty,max=2000"`
 	PhotoID     *int   `json:"photo_id"`
-	Phone       string `json:"phone"`
-	WorkEmail   string `json:"work_email"`
-	TgPersonal  string `json:"tg_personal_link"`
-	TgChannel   string `json:"tg_channel_link"`
-	VkLink      string `json:"vk_link"`
-	TiktokLink  string `json:"tiktok_link"`
-	YoutubeLink string `json:"youtube_link"`
-	DzenLink    string `json:"dzen_link"`
+	Phone       string `json:"phone" binding:"omitempty,e164"`
+	WorkEmail   string `json:"work_email" binding:"omitempty,email"`
+	TgPersonal  string `json:"tg_personal_link" binding:"omitempty,url"`
+	TgChannel   string `json:"tg_channel_link" binding:"omitempty,url"`
+	VkLink      string `json:"vk_link" binding:"omitempty,url"`
+	TiktokLink  string `json:"tiktok_link" binding:"omitempty,url"`
+	YoutubeLink string `json:"youtube_link" binding:"omitempty,url"`
+	DzenLink    string `json:"dzen_link" binding:"omitempty,url"`
 }
 
 type UpdateCreatorRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string `json:"name" binding:"omitempty,min=2,max=100"`
+	Description string `json:"description" binding:"omitempty,max=2000"`
 	PhotoID     *int   `json:"photo_id"`
-	Phone       string `json:"phone"`
-	WorkEmail   string `json:"work_email"`
-	TgPersonal  string `json:"tg_personal_link"`
-	TgChannel   string `json:"tg_channel_link"`
-	VkLink      string `json:"vk_link"`
-	TiktokLink  string `json:"tiktok_link"`
-	YoutubeLink string `json:"youtube_link"`
-	DzenLink    string `json:"dzen_link"`
+	Phone       string `json:"phone" binding:"omitempty,e164"`
+	WorkEmail   string `json:"work_email" binding:"omitempty,email"`
+	TgPersonal  string `json:"tg_personal_link" binding:"omitempty,url"`
+	TgChannel   string `json:"tg_channel_link" binding:"omitempty,url"`
+	VkLink      string `json:"vk_link" binding:"omitempty,url"`
+	TiktokLink  string `json:"tiktok_link" binding:"omitempty,url"`
+	YoutubeLink string `json:"youtube_link" binding:"omitempty,url"`
+	DzenLink    string `json:"dzen_link" binding:"omitempty,url"`
 }
 
 func (s *UserService) CreateCreator(userID int, req *CreateCreatorRequest) (*models.Creator, error) {
@@ -249,42 +249,42 @@ func (s *UserService) DeleteCreatorByUserID(targetUserID, currentUserID int) err
 // Venue operations
 
 type CreateVenueRequest struct {
-	Name          string `json:"name" binding:"required"`
-	Description   string `json:"description"`
-	StreetAddress string `json:"street_address"`
+	Name          string `json:"name" binding:"required,min=2,max=100"`
+	Description   string `json:"description" binding:"omitempty,max=2000"`
+	StreetAddress string `json:"street_address" binding:"omitempty,max=500"`
 	CityID        *int   `json:"city_id"`
-	OpeningHours  string `json:"opening_hours"`
+	OpeningHours  string `json:"opening_hours" binding:"omitempty,max=200"`
 	Capacity      int    `json:"capacity"`
 	LogoID        *int   `json:"logo_id"`
 	CoverPhotoID  *int   `json:"cover_photo_id"`
-	Phone         string `json:"phone"`
-	WorkEmail     string `json:"work_email"`
-	TgPersonal    string `json:"tg_personal_link"`
-	TgChannel     string `json:"tg_channel_link"`
-	VkLink        string `json:"vk_link"`
-	TiktokLink    string `json:"tiktok_link"`
-	YoutubeLink   string `json:"youtube_link"`
-	DzenLink      string `json:"dzen_link"`
+	Phone         string `json:"phone" binding:"omitempty,e164"`
+	WorkEmail     string `json:"work_email" binding:"omitempty,email"`
+	TgPersonal    string `json:"tg_personal_link" binding:"omitempty,url"`
+	TgChannel     string `json:"tg_channel_link" binding:"omitempty,url"`
+	VkLink        string `json:"vk_link" binding:"omitempty,url"`
+	TiktokLink    string `json:"tiktok_link" binding:"omitempty,url"`
+	YoutubeLink   string `json:"youtube_link" binding:"omitempty,url"`
+	DzenLink      string `json:"dzen_link" binding:"omitempty,url"`
 	CategoryIDs   []int  `json:"category_ids"`
 }
 
 type UpdateVenueRequest struct {
-	Name          string `json:"name"`
-	Description   string `json:"description"`
-	StreetAddress string `json:"street_address"`
+	Name          string `json:"name" binding:"omitempty,min=2,max=100"`
+	Description   string `json:"description" binding:"omitempty,max=2000"`
+	StreetAddress string `json:"street_address" binding:"omitempty,max=500"`
 	CityID        *int   `json:"city_id"`
-	OpeningHours  string `json:"opening_hours"`
+	OpeningHours  string `json:"opening_hours" binding:"omitempty,max=200"`
 	Capacity      int    `json:"capacity"`
 	LogoID        *int   `json:"logo_id"`
 	CoverPhotoID  *int   `json:"cover_photo_id"`
-	Phone         string `json:"phone"`
-	WorkEmail     string `json:"work_email"`
-	TgPersonal    string `json:"tg_personal_link"`
-	TgChannel     string `json:"tg_channel_link"`
-	VkLink        string `json:"vk_link"`
-	TiktokLink    string `json:"tiktok_link"`
-	YoutubeLink   string `json:"youtube_link"`
-	DzenLink      string `json:"dzen_link"`
+	Phone         string `json:"phone" binding:"omitempty,e164"`
+	WorkEmail     string `json:"work_email" binding:"omitempty,email"`
+	TgPersonal    string `json:"tg_personal_link" binding:"omitempty,url"`
+	TgChannel     string `json:"tg_channel_link" binding:"omitempty,url"`
+	VkLink        string `json:"vk_link" binding:"omitempty,url"`
+	TiktokLink    string `json:"tiktok_link" binding:"omitempty,url"`
+	YoutubeLink   string `json:"youtube_link" binding:"omitempty,url"`
+	DzenLink      string `json:"dzen_link" binding:"omitempty,url"`
 	CategoryIDs   []int  `json:"category_ids"`
 }
 

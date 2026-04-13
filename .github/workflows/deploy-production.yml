@@ -77,7 +77,7 @@ jobs:
           JWT_SECRET=${{ secrets.PROD_JWT_SECRET }}
 
           # Admin Secret Key
-          ADMIN_SECRET_KEY=${{ secrets.ADMIN_SECRET_KEY }}
+          ADMIN_SECRET_KEY=${{ secrets.PROD_ADMIN_SECRET_KEY }}
 
           # Microservices
           USER_SERVICE_PORT=8081

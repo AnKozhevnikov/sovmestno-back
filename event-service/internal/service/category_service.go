@@ -55,9 +55,9 @@ func (s *CategoryService) DeleteCategory(id int) error {
 }
 
 type CreateCategoryRequest struct {
-	Name string `json:"name" binding:"required"`
+	Name string `json:"name" binding:"required,min=2,max=100"`
 }
 
 type UpdateCategoryRequest struct {
-	Name string `json:"name"`
+	Name string `json:"name" binding:"omitempty,min=2,max=100"`
 }

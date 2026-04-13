@@ -48,6 +48,15 @@ func mapFieldError(fe validator.FieldError) AppError {
 			return AppError{Code: "PASSWORD_TOO_SHORT", Message: fmt.Sprintf("Password must be at least %s characters", fe.Param())}
 		}
 		return AppError{Code: "VALUE_TOO_SHORT", Message: fmt.Sprintf("Field '%s' must be at least %s characters", field, fe.Param())}
+	case "max":
+		if field == "password" {
+			return AppError{Code: "PASSWORD_TOO_LONG", Message: fmt.Sprintf("Password must be at most %s characters", fe.Param())}
+		}
+		return AppError{Code: "VALUE_TOO_LONG", Message: fmt.Sprintf("Field '%s' must be at most %s characters", field, fe.Param())}
+	case "url":
+		return AppError{Code: "INVALID_URL", Message: fmt.Sprintf("Field '%s' must be a valid URL (e.g. https://example.com)", field)}
+	case "e164":
+		return AppError{Code: "INVALID_PHONE", Message: "Phone must be in E.164 format (e.g. +79001234567)"}
 	case "oneof":
 		return AppError{Code: "INVALID_VALUE", Message: fmt.Sprintf("Field '%s' must be one of: %s", field, fe.Param())}
 	default:

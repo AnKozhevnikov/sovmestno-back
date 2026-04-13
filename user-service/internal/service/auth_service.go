@@ -31,42 +31,42 @@ func NewAuthService(repo *repository.UserRepository, cfg *config.Config, redisCl
 
 type RegisterCreatorRequest struct {
 	Email       string `json:"email" binding:"required,email"`
-	Password    string `json:"password" binding:"required,min=6"`
-	Name        string `json:"name" binding:"required"`
-	Description string `json:"description"`
-	Phone       string `json:"phone"`
-	WorkEmail   string `json:"work_email"`
-	TgPersonal  string `json:"tg_personal_link"`
-	TgChannel   string `json:"tg_channel_link"`
-	VkLink      string `json:"vk_link"`
-	TiktokLink  string `json:"tiktok_link"`
-	YoutubeLink string `json:"youtube_link"`
-	DzenLink    string `json:"dzen_link"`
+	Password    string `json:"password" binding:"required,min=8,max=72"`
+	Name        string `json:"name" binding:"required,min=2,max=100"`
+	Description string `json:"description" binding:"omitempty,max=2000"`
+	Phone       string `json:"phone" binding:"omitempty,e164"`
+	WorkEmail   string `json:"work_email" binding:"omitempty,email"`
+	TgPersonal  string `json:"tg_personal_link" binding:"omitempty,url"`
+	TgChannel   string `json:"tg_channel_link" binding:"omitempty,url"`
+	VkLink      string `json:"vk_link" binding:"omitempty,url"`
+	TiktokLink  string `json:"tiktok_link" binding:"omitempty,url"`
+	YoutubeLink string `json:"youtube_link" binding:"omitempty,url"`
+	DzenLink    string `json:"dzen_link" binding:"omitempty,url"`
 }
 
 type RegisterVenueRequest struct {
 	Email         string `json:"email" binding:"required,email"`
-	Password      string `json:"password" binding:"required,min=6"`
-	Name          string `json:"name" binding:"required"`
-	Description   string `json:"description"`
-	StreetAddress string `json:"street_address"`
+	Password      string `json:"password" binding:"required,min=8,max=72"`
+	Name          string `json:"name" binding:"required,min=2,max=100"`
+	Description   string `json:"description" binding:"omitempty,max=2000"`
+	StreetAddress string `json:"street_address" binding:"omitempty,max=500"`
 	CityID        *int   `json:"city_id"`
-	OpeningHours  string `json:"opening_hours"`
+	OpeningHours  string `json:"opening_hours" binding:"omitempty,max=200"`
 	Capacity      int    `json:"capacity"`
-	Phone         string `json:"phone"`
-	WorkEmail     string `json:"work_email"`
-	TgPersonal    string `json:"tg_personal_link"`
-	TgChannel     string `json:"tg_channel_link"`
-	VkLink        string `json:"vk_link"`
-	TiktokLink    string `json:"tiktok_link"`
-	YoutubeLink   string `json:"youtube_link"`
-	DzenLink      string `json:"dzen_link"`
-	CategoryIDs  []int  `json:"category_ids"`
+	Phone         string `json:"phone" binding:"omitempty,e164"`
+	WorkEmail     string `json:"work_email" binding:"omitempty,email"`
+	TgPersonal    string `json:"tg_personal_link" binding:"omitempty,url"`
+	TgChannel     string `json:"tg_channel_link" binding:"omitempty,url"`
+	VkLink        string `json:"vk_link" binding:"omitempty,url"`
+	TiktokLink    string `json:"tiktok_link" binding:"omitempty,url"`
+	YoutubeLink   string `json:"youtube_link" binding:"omitempty,url"`
+	DzenLink      string `json:"dzen_link" binding:"omitempty,url"`
+	CategoryIDs   []int  `json:"category_ids"`
 }
 
 type RegisterAdminRequest struct {
 	Email       string `json:"email" binding:"required,email"`
-	Password    string `json:"password" binding:"required,min=6"`
+	Password    string `json:"password" binding:"required,min=8,max=72"`
 	AdminSecret string `json:"admin_secret" binding:"required"`
 }
 

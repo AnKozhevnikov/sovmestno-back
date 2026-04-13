@@ -149,15 +149,15 @@ func (s *EventService) DeleteEvent(id int, creatorID int) error {
 
 
 type CreateEventRequest struct {
-	Title        string `json:"title" binding:"required"`
-	Description  string `json:"description"`
+	Title        string `json:"title" binding:"required,min=3,max=200"`
+	Description  string `json:"description" binding:"omitempty,max=5000"`
 	CoverPhotoID *int   `json:"cover_photo_id"`
 	CategoryIDs  []int  `json:"category_ids"`
 }
 
 type UpdateEventRequest struct {
-	Title        *string `json:"title"`
-	Description  *string `json:"description"`
+	Title        *string `json:"title" binding:"omitempty,min=3,max=200"`
+	Description  *string `json:"description" binding:"omitempty,max=5000"`
 	CoverPhotoID *int    `json:"cover_photo_id"`
 	CategoryIDs  []int   `json:"category_ids"`
 }
