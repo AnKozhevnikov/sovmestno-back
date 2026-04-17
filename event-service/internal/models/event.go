@@ -23,3 +23,12 @@ type EventCategory struct {
 }
 
 func (EventCategory) TableName() string { return "event_categories" }
+
+// VenueFavoriteEvent - избранные мероприятия площадки
+type VenueFavoriteEvent struct {
+	VenueUserID int       `gorm:"primaryKey" json:"venue_user_id"`
+	EventID     int       `gorm:"primaryKey" json:"event_id"`
+	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
+}
+
+func (VenueFavoriteEvent) TableName() string { return "venue_favorite_events" }

@@ -100,6 +100,48 @@ func (r *EventRepository) AddEventCategories(eventID int, categoryIDs []int) err
 	})
 }
 
+// Favorites operations
+
+func (r *EventRepository) AddVenueFavoriteEvent(venueUserID, eventID int) (bool, error) {
+	fav := &models.VenueFavoriteEvent{
+		VenueUserID: venueUserID,
+		EventID:     eventID,
+	}
+	result := r.db.Where(fav).FirstOrCreate(fav)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	alreadyExisted := result.RowsAffected == 0
+	return alreadyExisted, nil
+}
+
+func (r *EventRepository) RemoveVenueFavoriteEvent(venueUserID, eventID int) error {
+	result := r.db.Where("venue_user_id = ? AND event_id = ?", venueUserID, eventID).
+		Delete(&models.VenueFavoriteEvent{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *EventRepository) ListVenueFavoriteEvents(venueUserID int) ([]models.Event, error) {
+	var eventIDs []int
+	if err := r.db.Model(&models.VenueFavoriteEvent{}).
+		Where("venue_user_id = ?", venueUserID).
+		Pluck("event_id", &eventIDs).Error; err != nil {
+		return nil, err
+	}
+	if len(eventIDs) == 0 {
+		return []models.Event{}, nil
+	}
+	var events []models.Event
+	err := r.db.Where("id IN ?", eventIDs).Find(&events).Error
+	return events, err
+}
+
 func (r *EventRepository) GetEventCategories(eventID int) ([]int, error) {
 	var eventCategories []models.EventCategory
 	err := r.db.Where("event_id = ?", eventID).Find(&eventCategories).Error

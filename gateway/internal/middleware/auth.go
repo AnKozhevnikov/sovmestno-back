@@ -82,6 +82,11 @@ func isPublicRoute(path, method string) bool {
 		return true
 	}
 
+	// Newsletter — subscribe и unsubscribe публичные
+	if path == "/api/user/newsletter/subscribe" || path == "/api/user/newsletter/unsubscribe" {
+		return true
+	}
+
 	return false
 }
 

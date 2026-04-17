@@ -65,3 +65,16 @@ func GetUserRole(c *gin.Context) (string, bool) {
 	roleStr, ok := role.(string)
 	return roleStr, ok
 }
+
+// RequireRole проверяет роль пользователя
+func RequireRole(role string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userRole, ok := GetUserRole(c)
+		if !ok || userRole != role {
+			c.JSON(http.StatusForbidden, apperror.One("ACCESS_DENIED", "Insufficient permissions"))
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}

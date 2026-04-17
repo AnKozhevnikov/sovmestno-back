@@ -108,6 +108,25 @@ type Image struct {
 	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 
+// CreatorFavoriteVenue - избранные площадки создателя
+type CreatorFavoriteVenue struct {
+	CreatorUserID int       `gorm:"primaryKey" json:"creator_user_id"`
+	VenueUserID   int       `gorm:"primaryKey" json:"venue_user_id"`
+	CreatedAt     time.Time `gorm:"autoCreateTime" json:"created_at"`
+}
+
+func (CreatorFavoriteVenue) TableName() string { return "creator_favorite_venues" }
+
+// NewsletterSubscription - подписка на рассылку
+type NewsletterSubscription struct {
+	ID               int       `gorm:"primaryKey;autoIncrement" json:"id"`
+	Email            string    `gorm:"uniqueIndex;not null" json:"email"`
+	UnsubscribeToken string    `gorm:"not null" json:"unsubscribe_token"`
+	SubscribedAt     time.Time `gorm:"autoCreateTime" json:"subscribed_at"`
+}
+
+func (NewsletterSubscription) TableName() string { return "newsletter_subscriptions" }
+
 // TableName overrides
 func (User) TableName() string          { return "users" }
 func (Creator) TableName() string       { return "creators" }

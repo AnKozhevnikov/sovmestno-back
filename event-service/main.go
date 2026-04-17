@@ -42,9 +42,11 @@ func main() {
 
 	eventService := service.NewEventService(eventRepo)
 	categoryService := service.NewCategoryService(categoryRepo)
+	favoritesService := service.NewFavoritesService(eventRepo)
 
 	eventHandler := handlers.NewEventHandler(eventService)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
+	favoritesHandler := handlers.NewFavoritesHandler(favoritesService)
 
 	r := gin.Default()
 
@@ -73,6 +75,15 @@ func main() {
 		eventsCreator.PUT("/:id", eventHandler.UpdateEvent)
 		eventsCreator.PATCH("/:id/publish", eventHandler.PublishEvent)
 		eventsCreator.DELETE("/:id", eventHandler.DeleteEvent)
+	}
+
+	// Favorites routes (venue → events)
+	eventsFavorites := r.Group("/events/favorites")
+	eventsFavorites.Use(middleware.ExtractUserContext(), middleware.RequireRole("venue"))
+	{
+		eventsFavorites.GET("", favoritesHandler.ListFavoriteEvents)
+		eventsFavorites.PUT("/:id", favoritesHandler.AddFavoriteEvent)
+		eventsFavorites.DELETE("/:id", favoritesHandler.RemoveFavoriteEvent)
 	}
 
 	// Публичные ручки категорий — без авторизации

@@ -209,3 +209,82 @@ func (r *UserRepository) GetVenueCategories(venueID int) ([]int, error) {
 	}
 	return categoryIDs, nil
 }
+
+// Favorites operations
+
+func (r *UserRepository) AddCreatorFavoriteVenue(creatorUserID, venueUserID int) (bool, error) {
+	fav := &models.CreatorFavoriteVenue{
+		CreatorUserID: creatorUserID,
+		VenueUserID:   venueUserID,
+	}
+	result := r.db.Where(fav).FirstOrCreate(fav)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	alreadyExisted := result.RowsAffected == 0
+	return alreadyExisted, nil
+}
+
+func (r *UserRepository) RemoveCreatorFavoriteVenue(creatorUserID, venueUserID int) error {
+	result := r.db.Where("creator_user_id = ? AND venue_user_id = ?", creatorUserID, venueUserID).
+		Delete(&models.CreatorFavoriteVenue{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *UserRepository) ListCreatorFavoriteVenues(creatorUserID int) ([]models.Venue, error) {
+	var venueUserIDs []int
+	if err := r.db.Model(&models.CreatorFavoriteVenue{}).
+		Where("creator_user_id = ?", creatorUserID).
+		Pluck("venue_user_id", &venueUserIDs).Error; err != nil {
+		return nil, err
+	}
+	if len(venueUserIDs) == 0 {
+		return []models.Venue{}, nil
+	}
+	var venues []models.Venue
+	err := r.db.Where("user_id IN ?", venueUserIDs).
+		Preload("Logo").
+		Preload("CoverPhoto").
+		Find(&venues).Error
+	return venues, err
+}
+
+// Newsletter operations
+
+func (r *UserRepository) CreateNewsletterSubscription(sub *models.NewsletterSubscription) error {
+	return r.db.Create(sub).Error
+}
+
+func (r *UserRepository) GetNewsletterSubscriptionByEmail(email string) (*models.NewsletterSubscription, error) {
+	var sub models.NewsletterSubscription
+	err := r.db.Where("email = ?", email).First(&sub).Error
+	if err != nil {
+		return nil, err
+	}
+	return &sub, nil
+}
+
+func (r *UserRepository) GetNewsletterSubscriptionByToken(token string) (*models.NewsletterSubscription, error) {
+	var sub models.NewsletterSubscription
+	err := r.db.Where("unsubscribe_token = ?", token).First(&sub).Error
+	if err != nil {
+		return nil, err
+	}
+	return &sub, nil
+}
+
+func (r *UserRepository) DeleteNewsletterSubscription(id int) error {
+	return r.db.Delete(&models.NewsletterSubscription{}, id).Error
+}
+
+func (r *UserRepository) ListNewsletterSubscriptions() ([]models.NewsletterSubscription, error) {
+	var subs []models.NewsletterSubscription
+	err := r.db.Order("subscribed_at DESC").Find(&subs).Error
+	return subs, err
+}

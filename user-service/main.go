@@ -103,6 +103,12 @@ func main() {
 	authService := service.NewAuthService(userRepo, cfg, redisClient)
 	authHandler := handlers.NewAuthHandler(authService)
 
+	newsletterService := service.NewNewsletterService(userRepo)
+	newsletterHandler := handlers.NewNewsletterHandler(newsletterService)
+
+	favoritesService := service.NewFavoritesService(userRepo)
+	favoritesHandler := handlers.NewFavoritesHandler(favoritesService)
+
 	// Настройка роутера
 	r := gin.Default()
 
@@ -166,6 +172,28 @@ func main() {
 		// Загрузка изображений
 		users.POST("/upload", userHandler.UploadImage)
 		users.GET("/images/:id", userHandler.GetImage)
+	}
+
+	// Favorites routes (creator → venues)
+	favorites := r.Group("/users/me/favorites")
+	favorites.Use(middleware.ExtractUserContext(), middleware.RequireRole("creator"))
+	{
+		favorites.GET("/venues", favoritesHandler.ListFavoriteVenues)
+		favorites.PUT("/venues/:user_id", favoritesHandler.AddFavoriteVenue)
+		favorites.DELETE("/venues/:user_id", favoritesHandler.RemoveFavoriteVenue)
+	}
+
+	// Newsletter routes
+	newsletter := r.Group("/newsletter")
+	{
+		newsletter.POST("/subscribe", newsletterHandler.Subscribe)
+		newsletter.GET("/unsubscribe", newsletterHandler.Unsubscribe)
+	}
+
+	newsletterAdmin := r.Group("/newsletter")
+	newsletterAdmin.Use(middleware.ExtractUserContext(), middleware.RequireRole("admin"))
+	{
+		newsletterAdmin.GET("/subscribers", newsletterHandler.ListSubscriptions)
 	}
 
 	// Создаем HTTP сервер
