@@ -87,6 +87,16 @@ func isPublicRoute(path, method string) bool {
 		return true
 	}
 
+	// Публичные профили (без личных контактов)
+	if method == http.MethodGet && strings.HasPrefix(path, "/api/user/public/") {
+		return true
+	}
+
+	// Публичный каталог мероприятий (только is_active=true)
+	if method == http.MethodGet && strings.HasPrefix(path, "/api/event/public/") {
+		return true
+	}
+
 	return false
 }
 

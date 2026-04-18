@@ -174,6 +174,15 @@ func main() {
 		users.GET("/images/:id", userHandler.GetImage)
 	}
 
+	// Public routes (без авторизации, без личных контактов)
+	public := r.Group("/public")
+	{
+		public.GET("/creators", userHandler.ListPublicCreators)
+		public.GET("/creators/:user_id", userHandler.GetPublicCreator)
+		public.GET("/venues", userHandler.ListPublicVenues)
+		public.GET("/venues/:user_id", userHandler.GetPublicVenue)
+	}
+
 	// Favorites routes (creator → venues)
 	favorites := r.Group("/users/me/favorites")
 	favorites.Use(middleware.ExtractUserContext(), middleware.RequireRole("creator"))

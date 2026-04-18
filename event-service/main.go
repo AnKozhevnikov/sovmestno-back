@@ -77,6 +77,13 @@ func main() {
 		eventsCreator.DELETE("/:id", eventHandler.DeleteEvent)
 	}
 
+	// Public routes (без авторизации, только is_active=true)
+	publicEvents := r.Group("/public/events")
+	{
+		publicEvents.GET("", eventHandler.ListPublicEvents)
+		publicEvents.GET("/:id", eventHandler.GetPublicEvent)
+	}
+
 	// Favorites routes (venue → events)
 	eventsFavorites := r.Group("/events/favorites")
 	eventsFavorites.Use(middleware.ExtractUserContext(), middleware.RequireRole("venue"))
