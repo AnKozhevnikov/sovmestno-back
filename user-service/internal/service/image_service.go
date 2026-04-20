@@ -85,8 +85,9 @@ func (s *ImageService) UploadImage(file *multipart.FileHeader, imageType string)
 		return nil, fmt.Errorf("failed to upload to MinIO: %v", err)
 	}
 
-	// Сохраняем метаданные в БД
+	// Сохраняем метаданные в БД (UUID генерируется в Go, не через DB DEFAULT)
 	image := &models.Image{
+		ID:         uuid.New().String(),
 		FileName:   file.Filename,
 		FilePath:   objectName,
 		FileType:   contentType,
@@ -104,7 +105,7 @@ func (s *ImageService) UploadImage(file *multipart.FileHeader, imageType string)
 }
 
 // DeleteImage удаляет изображение из MinIO и БД
-func (s *ImageService) DeleteImage(imageID int) error {
+func (s *ImageService) DeleteImage(imageID string) error {
 	// Получаем информацию об изображении
 	image, err := s.repo.GetImageByID(imageID)
 	if err != nil {
@@ -129,7 +130,7 @@ func (s *ImageService) DeleteImage(imageID int) error {
 }
 
 // GetImage возвращает изображение из MinIO в виде байтов
-func (s *ImageService) GetImage(imageID int) (*models.Image, []byte, error) {
+func (s *ImageService) GetImage(imageID string) (*models.Image, []byte, error) {
 	image, err := s.repo.GetImageByID(imageID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("image not found in DB: %v", err)

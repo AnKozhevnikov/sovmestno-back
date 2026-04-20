@@ -97,6 +97,11 @@ func isPublicRoute(path, method string) bool {
 		return true
 	}
 
+	// Публичное получение изображений (UUID — не enumerable)
+	if method == http.MethodGet && strings.HasPrefix(path, "/api/user/users/images/") {
+		return true
+	}
+
 	return false
 }
 

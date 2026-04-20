@@ -8,7 +8,7 @@ type User struct {
 	Email        string    `gorm:"uniqueIndex;not null" json:"email"`
 	PasswordHash string    `gorm:"not null" json:"-"`
 	Role         string    `gorm:"not null" json:"role"` // "creator" или "venue"
-	AvatarID     *int      `json:"avatar_id,omitempty"`
+	AvatarID     *string   `gorm:"type:uuid" json:"avatar_id,omitempty"`
 	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 
@@ -24,7 +24,7 @@ type Creator struct {
 	UserID      int       `gorm:"not null" json:"user_id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description,omitempty"`
-	PhotoID     *int      `json:"photo_id,omitempty"`
+	PhotoID     *string   `gorm:"type:uuid" json:"photo_id,omitempty"`
 	Phone       string    `json:"phone,omitempty"`
 	WorkEmail   string    `json:"work_email,omitempty"`
 	TgPersonal  string    `gorm:"column:tg_personal_link" json:"tg_personal_link,omitempty"`
@@ -44,9 +44,9 @@ type Creator struct {
 
 // CreatorPhoto - фотографии с проведенных мероприятий создателя
 type CreatorPhoto struct {
-	ID        int `gorm:"primaryKey;autoIncrement" json:"id"`
-	CreatorID int `gorm:"not null" json:"creator_id"`
-	ImageID   int `gorm:"not null" json:"image_id"`
+	ID        int    `gorm:"primaryKey;autoIncrement" json:"id"`
+	CreatorID int    `gorm:"not null" json:"creator_id"`
+	ImageID   string `gorm:"type:uuid;not null" json:"image_id"`
 
 	Image Image `gorm:"foreignKey:ImageID" json:"image"`
 }
@@ -61,8 +61,8 @@ type Venue struct {
 	CityID        *int      `json:"city_id,omitempty"`
 	OpeningHours  string    `json:"opening_hours,omitempty"`
 	Capacity      int       `json:"capacity,omitempty"`
-	LogoID        *int      `json:"logo_id,omitempty"`
-	CoverPhotoID  *int      `json:"cover_photo_id,omitempty"`
+	LogoID        *string   `gorm:"type:uuid" json:"logo_id,omitempty"`
+	CoverPhotoID  *string   `gorm:"type:uuid" json:"cover_photo_id,omitempty"`
 	Phone         string    `json:"phone,omitempty"`
 	WorkEmail     string    `json:"work_email,omitempty"`
 	TgPersonal    string    `gorm:"column:tg_personal_link" json:"tg_personal_link,omitempty"`
@@ -84,9 +84,9 @@ type Venue struct {
 
 // VenuePhoto - дополнительные фото площадки
 type VenuePhoto struct {
-	ID      int `gorm:"primaryKey;autoIncrement" json:"id"`
-	VenueID int `gorm:"not null" json:"venue_id"`
-	ImageID int `gorm:"not null" json:"image_id"`
+	ID      int    `gorm:"primaryKey;autoIncrement" json:"id"`
+	VenueID int    `gorm:"not null" json:"venue_id"`
+	ImageID string `gorm:"type:uuid;not null" json:"image_id"`
 
 	Image Image `gorm:"foreignKey:ImageID" json:"image"`
 }
@@ -99,7 +99,7 @@ type VenueCategory struct {
 
 // Image - метаданные изображений из MinIO
 type Image struct {
-	ID         int       `gorm:"primaryKey;autoIncrement" json:"id"`
+	ID         string    `gorm:"type:uuid;primaryKey" json:"id"`
 	FileName   string    `gorm:"not null" json:"file_name"`
 	FilePath   string    `gorm:"not null" json:"file_path"`
 	FileType   string    `json:"file_type,omitempty"`

@@ -16,7 +16,7 @@ type PublicCreatorResponse struct {
 	UserID      int                   `json:"user_id"`
 	Name        string                `json:"name"`
 	Description string                `json:"description,omitempty"`
-	PhotoID     *int                  `json:"photo_id,omitempty"`
+	PhotoID     *string               `json:"photo_id,omitempty"`
 	TgChannel   string                `json:"tg_channel_link,omitempty"`
 	VkLink      string                `json:"vk_link,omitempty"`
 	TiktokLink  string                `json:"tiktok_link,omitempty"`
@@ -38,8 +38,8 @@ type PublicVenueResponse struct {
 	CityID        *int                `json:"city_id,omitempty"`
 	OpeningHours  string              `json:"opening_hours,omitempty"`
 	Capacity      int                 `json:"capacity,omitempty"`
-	LogoID        *int                `json:"logo_id,omitempty"`
-	CoverPhotoID  *int                `json:"cover_photo_id,omitempty"`
+	LogoID        *string             `json:"logo_id,omitempty"`
+	CoverPhotoID  *string             `json:"cover_photo_id,omitempty"`
 	TgChannel     string              `json:"tg_channel_link,omitempty"`
 	VkLink        string              `json:"vk_link,omitempty"`
 	TiktokLink    string              `json:"tiktok_link,omitempty"`

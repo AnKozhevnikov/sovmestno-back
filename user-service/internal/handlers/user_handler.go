@@ -435,7 +435,7 @@ func (h *UserHandler) DeleteVenue(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request body map[string]int true "ID изображения" example({"image_id": 1})
+// @Param        request body map[string]string true "UUID изображения" example({"image_id": "550e8400-e29b-41d4-a716-446655440000"})
 // @Success      201 {object} models.CreatorPhoto "Фото добавлено"
 // @Failure      400 {object} apperror.ErrorResponse
 // @Failure      401 {object} apperror.ErrorResponse
@@ -449,7 +449,7 @@ func (h *UserHandler) AddCreatorPhoto(c *gin.Context) {
 	}
 
 	var req struct {
-		ImageID int `json:"image_id" binding:"required"`
+		ImageID string `json:"image_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		if resp, ok := apperror.FromValidation(err); ok {
@@ -521,7 +521,7 @@ func (h *UserHandler) DeleteCreatorPhoto(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request body map[string]int true "ID изображения" example({"image_id": 1})
+// @Param        request body map[string]string true "UUID изображения" example({"image_id": "550e8400-e29b-41d4-a716-446655440000"})
 // @Success      201 {object} models.VenuePhoto "Фото добавлено"
 // @Failure      400 {object} apperror.ErrorResponse
 // @Failure      401 {object} apperror.ErrorResponse
@@ -535,7 +535,7 @@ func (h *UserHandler) AddVenuePhoto(c *gin.Context) {
 	}
 
 	var req struct {
-		ImageID int `json:"image_id" binding:"required"`
+		ImageID string `json:"image_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		if resp, ok := apperror.FromValidation(err); ok {
@@ -656,22 +656,15 @@ func (h *UserHandler) UploadImage(c *gin.Context) {
 
 // GetImage godoc
 // @Summary      Получить изображение
-// @Description  Возвращает изображение напрямую из хранилища
+// @Description  Возвращает изображение напрямую из хранилища. Публичный эндпоинт — авторизация не требуется.
 // @Tags         images
 // @Produce      image/jpeg,image/png,image/gif,image/webp
-// @Security     BearerAuth
-// @Param        id path int true "ID изображения"
+// @Param        id path string true "UUID изображения"
 // @Success      200 {file} binary "Изображение"
-// @Failure      400 {object} apperror.ErrorResponse
-// @Failure      401 {object} apperror.ErrorResponse
 // @Failure      404 {object} apperror.ErrorResponse
 // @Router       /users/images/{id} [get]
 func (h *UserHandler) GetImage(c *gin.Context) {
-	imageID, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, apperror.One("INVALID_ID", "Invalid image ID"))
-		return
-	}
+	imageID := c.Param("id")
 
 	image, data, err := h.imageService.GetImage(imageID)
 	if err != nil {

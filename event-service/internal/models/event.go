@@ -7,7 +7,7 @@ type Event struct {
 	CreatorID    int       `gorm:"not null" json:"creator_id"`
 	Title        string    `gorm:"not null" json:"title"`
 	Description  string    `json:"description,omitempty"`
-	CoverPhotoID *int      `json:"cover_photo_id,omitempty"`
+	CoverPhotoID *string   `gorm:"type:uuid" json:"cover_photo_id,omitempty"`
 	IsActive     bool      `gorm:"default:true" json:"is_active"`
 	IsCompleted  bool      `gorm:"default:false" json:"is_completed"`
 	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`

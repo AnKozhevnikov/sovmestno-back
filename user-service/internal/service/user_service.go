@@ -57,9 +57,9 @@ func (s *UserService) GetMyProfile(userID int) (map[string]interface{}, error) {
 // Creator operations
 
 type CreateCreatorRequest struct {
-	Name        string `json:"name" binding:"required,min=2,max=100"`
-	Description string `json:"description" binding:"omitempty,max=2000"`
-	PhotoID     *int   `json:"photo_id"`
+	Name        string  `json:"name" binding:"required,min=2,max=100"`
+	Description string  `json:"description" binding:"omitempty,max=2000"`
+	PhotoID     *string `json:"photo_id"`
 	Phone       string `json:"phone" binding:"omitempty,e164"`
 	WorkEmail   string `json:"work_email" binding:"omitempty,email"`
 	TgPersonal  string `json:"tg_personal_link" binding:"omitempty,url"`
@@ -71,9 +71,9 @@ type CreateCreatorRequest struct {
 }
 
 type UpdateCreatorRequest struct {
-	Name        string `json:"name" binding:"omitempty,min=2,max=100"`
-	Description string `json:"description" binding:"omitempty,max=2000"`
-	PhotoID     *int   `json:"photo_id"`
+	Name        string  `json:"name" binding:"omitempty,min=2,max=100"`
+	Description string  `json:"description" binding:"omitempty,max=2000"`
+	PhotoID     *string `json:"photo_id"`
 	Phone       string `json:"phone" binding:"omitempty,e164"`
 	WorkEmail   string `json:"work_email" binding:"omitempty,email"`
 	TgPersonal  string `json:"tg_personal_link" binding:"omitempty,url"`
@@ -206,7 +206,7 @@ func (s *UserService) ListCreators(limit, offset int) ([]models.Creator, error) 
 	return s.repo.ListCreators(limit, offset)
 }
 
-func (s *UserService) AddCreatorPhoto(userID, imageID int) (*models.CreatorPhoto, error) {
+func (s *UserService) AddCreatorPhoto(userID int, imageID string) (*models.CreatorPhoto, error) {
 	creator, err := s.repo.GetCreatorByUserID(userID)
 	if err != nil {
 		return nil, ErrCreatorNotFound
@@ -249,14 +249,14 @@ func (s *UserService) DeleteCreatorByUserID(targetUserID, currentUserID int) err
 // Venue operations
 
 type CreateVenueRequest struct {
-	Name          string `json:"name" binding:"required,min=2,max=100"`
-	Description   string `json:"description" binding:"omitempty,max=2000"`
-	StreetAddress string `json:"street_address" binding:"omitempty,max=500"`
-	CityID        *int   `json:"city_id"`
-	OpeningHours  string `json:"opening_hours" binding:"omitempty,max=200"`
-	Capacity      int    `json:"capacity"`
-	LogoID        *int   `json:"logo_id"`
-	CoverPhotoID  *int   `json:"cover_photo_id"`
+	Name          string  `json:"name" binding:"required,min=2,max=100"`
+	Description   string  `json:"description" binding:"omitempty,max=2000"`
+	StreetAddress string  `json:"street_address" binding:"omitempty,max=500"`
+	CityID        *int    `json:"city_id"`
+	OpeningHours  string  `json:"opening_hours" binding:"omitempty,max=200"`
+	Capacity      int     `json:"capacity"`
+	LogoID        *string `json:"logo_id"`
+	CoverPhotoID  *string `json:"cover_photo_id"`
 	Phone         string `json:"phone" binding:"omitempty,e164"`
 	WorkEmail     string `json:"work_email" binding:"omitempty,email"`
 	TgPersonal    string `json:"tg_personal_link" binding:"omitempty,url"`
@@ -269,14 +269,14 @@ type CreateVenueRequest struct {
 }
 
 type UpdateVenueRequest struct {
-	Name          string `json:"name" binding:"omitempty,min=2,max=100"`
-	Description   string `json:"description" binding:"omitempty,max=2000"`
-	StreetAddress string `json:"street_address" binding:"omitempty,max=500"`
-	CityID        *int   `json:"city_id"`
-	OpeningHours  string `json:"opening_hours" binding:"omitempty,max=200"`
-	Capacity      int    `json:"capacity"`
-	LogoID        *int   `json:"logo_id"`
-	CoverPhotoID  *int   `json:"cover_photo_id"`
+	Name          string  `json:"name" binding:"omitempty,min=2,max=100"`
+	Description   string  `json:"description" binding:"omitempty,max=2000"`
+	StreetAddress string  `json:"street_address" binding:"omitempty,max=500"`
+	CityID        *int    `json:"city_id"`
+	OpeningHours  string  `json:"opening_hours" binding:"omitempty,max=200"`
+	Capacity      int     `json:"capacity"`
+	LogoID        *string `json:"logo_id"`
+	CoverPhotoID  *string `json:"cover_photo_id"`
 	Phone         string `json:"phone" binding:"omitempty,e164"`
 	WorkEmail     string `json:"work_email" binding:"omitempty,email"`
 	TgPersonal    string `json:"tg_personal_link" binding:"omitempty,url"`
@@ -519,7 +519,7 @@ func (s *UserService) DeleteVenue(id, userID int) error {
 	return s.repo.DeleteVenue(id)
 }
 
-func (s *UserService) AddVenuePhoto(userID, imageID int) (*models.VenuePhoto, error) {
+func (s *UserService) AddVenuePhoto(userID int, imageID string) (*models.VenuePhoto, error) {
 	venue, err := s.repo.GetVenueByUserID(userID)
 	if err != nil {
 		return nil, ErrVenueNotFound

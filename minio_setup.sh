@@ -6,7 +6,7 @@ until mc alias set myminio http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PAS
   sleep 1
 done
 
-: "${MINIO_BUCKETS:=images creator-avatars venue-cover-photos venue-photos venue-logos event-covers}"
+: "${MINIO_BUCKETS:=images creator-avatars creator-photos venue-cover-photos venue-photos venue-logos event-covers}"
 for b in $MINIO_BUCKETS; do
   mc mb --ignore-existing myminio/"$b"
 done

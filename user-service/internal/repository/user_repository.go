@@ -70,7 +70,7 @@ func (r *UserRepository) ListCreators(limit, offset int) ([]models.Creator, erro
 }
 
 // CreatorPhoto operations
-func (r *UserRepository) AddCreatorPhoto(creatorID, imageID int) (*models.CreatorPhoto, error) {
+func (r *UserRepository) AddCreatorPhoto(creatorID int, imageID string) (*models.CreatorPhoto, error) {
 	photo := &models.CreatorPhoto{
 		CreatorID: creatorID,
 		ImageID:   imageID,
@@ -95,7 +95,7 @@ func (r *UserRepository) DeleteCreatorPhoto(photoID int) error {
 }
 
 // VenuePhoto operations
-func (r *UserRepository) AddVenuePhoto(venueID, imageID int) (*models.VenuePhoto, error) {
+func (r *UserRepository) AddVenuePhoto(venueID int, imageID string) (*models.VenuePhoto, error) {
 	photo := &models.VenuePhoto{
 		VenueID: venueID,
 		ImageID: imageID,
@@ -166,14 +166,14 @@ func (r *UserRepository) CreateImage(image *models.Image) error {
 	return r.db.Create(image).Error
 }
 
-func (r *UserRepository) GetImageByID(id int) (*models.Image, error) {
+func (r *UserRepository) GetImageByID(id string) (*models.Image, error) {
 	var image models.Image
-	err := r.db.First(&image, id).Error
+	err := r.db.First(&image, "id = ?", id).Error
 	return &image, err
 }
 
-func (r *UserRepository) DeleteImage(id int) error {
-	return r.db.Delete(&models.Image{}, id).Error
+func (r *UserRepository) DeleteImage(id string) error {
+	return r.db.Delete(&models.Image{}, "id = ?", id).Error
 }
 
 // VenueCategory operations
