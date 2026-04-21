@@ -275,22 +275,36 @@ services:
     depends_on:
       - prometheus
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@admin.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
-      PGADMIN_CONFIG_SERVER_MODE: 'True'
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
+
+  # Туннель для локального подключения через SSH (DBeaver и др.)
+  # Пробрасывает порты только на 127.0.0.1 — снаружи не видны
+  # postgres: localhost:5432, minio-api: localhost:9000, minio-console: localhost:9001, clickhouse: localhost:8123
+  tunnel:
+    image: alpine/socat:latest
+    container_name: tunnel
+    command: >
+      sh -c "
+        socat TCP-LISTEN:5432,fork,reuseaddr TCP:postgres:5432 &
+        socat TCP-LISTEN:9000,fork,reuseaddr TCP:minio:9000 &
+        socat TCP-LISTEN:9001,fork,reuseaddr TCP:minio:9001 &
+        socat TCP-LISTEN:8123,fork,reuseaddr TCP:clickhouse:8123 &
+        wait
+      "
+    ports:
+      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+      - "127.0.0.1:8123:8123"
     networks:
       - sovmestno-network
-    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
 
   clickhouse:
     image: clickhouse/clickhouse-server:24.3
@@ -346,7 +360,6 @@ volumes:
   letsencrypt_data:
   prometheus_data:
   grafana_data:
-  pgadmin_data:
 
 networks:
   sovmestno-network:
