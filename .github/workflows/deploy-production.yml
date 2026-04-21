@@ -33,12 +33,12 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
 
-      - name: Download dependencies
+      - name: Tidy dependencies
         run: |
           for svc in application-service event-service user-service; do
-            (cd $svc && go mod download)
+            (cd $svc && go mod tidy)
           done
 
       - name: Run unit tests
