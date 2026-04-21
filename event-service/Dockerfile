@@ -6,7 +6,7 @@ COPY go.mod ./
 
 COPY . .
 
-RUN go mod download && go mod tidy
+RUN go mod download
 
 RUN go install github.com/swaggo/swag/cmd/swag@latest && \
     swag init

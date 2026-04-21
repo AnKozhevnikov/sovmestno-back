@@ -19,10 +19,10 @@ jobs:
         with:
           go-version: '1.24'
 
-      - name: Tidy dependencies
+      - name: Download dependencies
         run: |
           for svc in application-service event-service user-service; do
-            (cd $svc && go mod tidy)
+            (cd $svc && go mod download)
           done
 
       - name: Run unit tests

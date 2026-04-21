@@ -12,8 +12,7 @@ COPY go.mod ./
 # Copy source code
 COPY . .
 
-# Update dependencies based on imports
-RUN go mod tidy
+RUN go mod download
 
 # Generate swagger docs
 RUN swag init

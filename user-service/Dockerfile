@@ -11,8 +11,7 @@ COPY go.mod ./
 # Копируем исходники
 COPY . .
 
-# Обновляем зависимости на основе импортов
-RUN go mod tidy
+RUN go mod download
 
 # Генерируем Swagger документацию
 RUN swag init --parseDependency --parseInternal
