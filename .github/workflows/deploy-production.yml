@@ -35,6 +35,12 @@ jobs:
         with:
           go-version: '1.23'
 
+      - name: Download dependencies
+        run: |
+          for svc in application-service event-service user-service; do
+            (cd $svc && go mod download)
+          done
+
       - name: Run unit tests
         run: |
           for svc in application-service event-service user-service; do
