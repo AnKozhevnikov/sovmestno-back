@@ -6,9 +6,37 @@ on:
       - main
 
 jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Run unit tests
+        run: |
+          for svc in application-service event-service user-service; do
+            echo "=== Unit tests: $svc ==="
+            (cd $svc && go test ./tests/unit/... -v)
+          done
+
+      - name: Run integration tests
+        run: |
+          for svc in application-service event-service user-service; do
+            echo "=== Integration tests: $svc ==="
+            (cd $svc && go test -tags=integration ./tests/integration/... -v -timeout 120s)
+          done
+
   deploy:
     name: Deploy to Staging Server
     runs-on: ubuntu-latest
+    needs: test
 
     steps:
       - name: Checkout code

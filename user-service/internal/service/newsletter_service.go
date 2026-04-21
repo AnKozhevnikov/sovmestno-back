@@ -9,10 +9,10 @@ import (
 )
 
 type NewsletterService struct {
-	repo *repository.UserRepository
+	repo repository.UserRepositoryInterface
 }
 
-func NewNewsletterService(repo *repository.UserRepository) *NewsletterService {
+func NewNewsletterService(repo repository.UserRepositoryInterface) *NewsletterService {
 	return &NewsletterService{repo: repo}
 }
 

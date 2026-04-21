@@ -6,10 +6,10 @@ import (
 )
 
 type EventService struct {
-	repo *repository.EventRepository
+	repo repository.EventRepositoryInterface
 }
 
-func NewEventService(repo *repository.EventRepository) *EventService {
+func NewEventService(repo repository.EventRepositoryInterface) *EventService {
 	return &EventService{repo: repo}
 }
 

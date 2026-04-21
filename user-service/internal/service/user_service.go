@@ -8,11 +8,11 @@ import (
 )
 
 type UserService struct {
-	repo *repository.UserRepository
+	repo repository.UserRepositoryInterface
 	cfg  *config.Config
 }
 
-func NewUserService(repo *repository.UserRepository, cfg *config.Config) *UserService {
+func NewUserService(repo repository.UserRepositoryInterface, cfg *config.Config) *UserService {
 	return &UserService{
 		repo: repo,
 		cfg:  cfg,

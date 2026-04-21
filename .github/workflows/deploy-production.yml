@@ -21,10 +21,38 @@ jobs:
           fi
           echo "Deployment confirmed"
 
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Run unit tests
+        run: |
+          for svc in application-service event-service user-service; do
+            echo "=== Unit tests: $svc ==="
+            (cd $svc && go test ./tests/unit/... -v)
+          done
+
+      - name: Run integration tests
+        run: |
+          for svc in application-service event-service user-service; do
+            echo "=== Integration tests: $svc ==="
+            (cd $svc && go test -tags=integration ./tests/integration/... -v -timeout 120s)
+          done
+
   deploy:
     name: Deploy to Production Server
     runs-on: ubuntu-latest
-    needs: validate
+    needs: [validate, test]
     environment:
       name: production
       url: https://sovmestno-site.ru

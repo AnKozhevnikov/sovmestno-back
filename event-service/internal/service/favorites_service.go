@@ -9,10 +9,10 @@ import (
 )
 
 type FavoritesService struct {
-	repo *repository.EventRepository
+	repo repository.EventRepositoryInterface
 }
 
-func NewFavoritesService(repo *repository.EventRepository) *FavoritesService {
+func NewFavoritesService(repo repository.EventRepositoryInterface) *FavoritesService {
 	return &FavoritesService{repo: repo}
 }
 

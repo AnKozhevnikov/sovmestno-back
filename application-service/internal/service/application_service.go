@@ -7,10 +7,10 @@ import (
 
 
 type ApplicationService struct {
-	repo *repository.ApplicationRepository
+	repo repository.ApplicationRepositoryInterface
 }
 
-func NewApplicationService(repo *repository.ApplicationRepository) *ApplicationService {
+func NewApplicationService(repo repository.ApplicationRepositoryInterface) *ApplicationService {
 	return &ApplicationService{repo: repo}
 }
 
