@@ -67,6 +67,7 @@ func main() {
 	{
 		collaborations.GET("", collaborationHandler.ListCollaborations)
 		collaborations.GET("/partners", collaborationHandler.ListCollaborationPartners)
+		collaborations.GET("/completed-events", collaborationHandler.GetCompletedEventIDs)
 		collaborations.GET("/:id", collaborationHandler.GetCollaboration)
 		collaborations.PATCH("/:id/complete", collaborationHandler.CompleteCollaboration)
 		collaborations.PATCH("/:id/cancel", collaborationHandler.CancelCollaboration)

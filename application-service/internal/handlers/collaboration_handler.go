@@ -114,6 +114,44 @@ func (h *CollaborationHandler) ListCollaborationPartners(c *gin.Context) {
 	c.JSON(http.StatusOK, partnerIDs)
 }
 
+// GetCompletedEventIDs возвращает ID завершённых мероприятий пользователя
+// @Summary Get completed event IDs for a user
+// @Description Returns event IDs from completed collaborations for the given user_id. Accessible to any authenticated user.
+// @Tags collaborations
+// @Produce json
+// @Param user_id query int true "User ID"
+// @Success 200 {object} map[string][]int
+// @Failure 400 {object} apperror.ErrorResponse
+// @Failure 401 {object} apperror.ErrorResponse
+// @Failure 500 {object} apperror.ErrorResponse
+// @Security BearerAuth
+// @Router /collaborations/completed-events [get]
+func (h *CollaborationHandler) GetCompletedEventIDs(c *gin.Context) {
+	userIDStr := c.Query("user_id")
+	if userIDStr == "" {
+		c.JSON(http.StatusBadRequest, apperror.One("MISSING_USER_ID", "user_id query param is required"))
+		return
+	}
+
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil || userID <= 0 {
+		c.JSON(http.StatusBadRequest, apperror.One("INVALID_USER_ID", "user_id must be a positive integer"))
+		return
+	}
+
+	eventIDs, err := h.applicationService.GetCompletedEventIDsByUserID(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to fetch completed event IDs"))
+		return
+	}
+
+	if eventIDs == nil {
+		eventIDs = []int{}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"event_ids": eventIDs})
+}
+
 // CompleteCollaboration подтверждает проведение мероприятия
 // @Summary Complete collaboration (event took place)
 // @Description Creator confirms the event took place. Event removed from catalog.

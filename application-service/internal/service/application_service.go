@@ -219,6 +219,10 @@ func (s *ApplicationService) ListCollaborations(userID int, status string, limit
 	return s.repo.ListCollaborations(userID, status, limit, offset)
 }
 
+func (s *ApplicationService) GetCompletedEventIDsByUserID(userID int) ([]int, error) {
+	return s.repo.GetCompletedEventIDsByUserID(userID)
+}
+
 func (s *ApplicationService) DeleteApplication(id int, userID int) error {
 	app, err := s.repo.GetApplicationByID(id)
 	if err != nil {

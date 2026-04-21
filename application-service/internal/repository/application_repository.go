@@ -143,3 +143,11 @@ func (r *ApplicationRepository) ListCollaborations(userID int, status string, li
 	err := query.Order("updated_at DESC").Limit(limit).Offset(offset).Find(&collabs).Error
 	return collabs, err
 }
+
+func (r *ApplicationRepository) GetCompletedEventIDsByUserID(userID int) ([]int, error) {
+	var eventIDs []int
+	err := r.db.Model(&models.Collaboration{}).
+		Where("(creator_user_id = ? OR venue_user_id = ?) AND status = 'completed'", userID, userID).
+		Pluck("event_id", &eventIDs).Error
+	return eventIDs, err
+}
