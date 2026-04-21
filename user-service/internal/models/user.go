@@ -8,12 +8,10 @@ type User struct {
 	Email        string    `gorm:"uniqueIndex;not null" json:"email"`
 	PasswordHash string    `gorm:"not null" json:"-"`
 	Role         string    `gorm:"not null" json:"role"` // "creator" или "venue"
-	AvatarID     *string   `gorm:"type:uuid" json:"avatar_id,omitempty"`
 	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 
 	// Связи
-	Avatar  *Image   `gorm:"foreignKey:AvatarID" json:"avatar,omitempty"`
 	Creator *Creator `gorm:"foreignKey:UserID" json:"creator,omitempty"`
 	Venue   *Venue   `gorm:"foreignKey:UserID" json:"venue,omitempty"`
 }

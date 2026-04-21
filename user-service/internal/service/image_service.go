@@ -41,7 +41,7 @@ func NewImageService(repo *repository.UserRepository, cfg *config.Config) (*Imag
 }
 
 // UploadImage загружает изображение в MinIO и сохраняет метаданные в БД
-// imageType: avatar, venue-logo, venue-cover, venue-photo, event-cover
+// imageType: creator-photo, venue-logo, venue-cover, venue-photo, event-cover
 func (s *ImageService) UploadImage(file *multipart.FileHeader, imageType string) (*models.Image, error) {
 	// Проверяем тип файла
 	if !isValidImageType(file.Filename) {
@@ -162,7 +162,6 @@ func (s *ImageService) GetImage(imageID string) (*models.Image, []byte, error) {
 
 func getBucketByImageType(imageType string) string {
 	bucketMap := map[string]string{
-		"avatar":        "creator-avatars",
 		"creator-photo": "creator-photos",
 		"venue-logo":    "venue-logos",
 		"venue-cover":   "venue-cover-photos",

@@ -3,7 +3,6 @@ CREATE TABLE "users" (
   "email" varchar(255) UNIQUE NOT NULL,
   "password_hash" varchar(255) NOT NULL,
   "role" varchar(50) NOT NULL,
-  "avatar_id" uuid,
   "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -147,7 +146,6 @@ ALTER TABLE "venue_photos" ADD FOREIGN KEY ("venue_id") REFERENCES "venues" ("id
 ALTER TABLE "venue_photos" ADD FOREIGN KEY ("image_id") REFERENCES "images" ("id");
 ALTER TABLE "creator_photos" ADD FOREIGN KEY ("creator_id") REFERENCES "creators" ("id") ON DELETE CASCADE;
 ALTER TABLE "creator_photos" ADD FOREIGN KEY ("image_id") REFERENCES "images" ("id");
-ALTER TABLE "users" ADD FOREIGN KEY ("avatar_id") REFERENCES "images" ("id");
 ALTER TABLE "venues" ADD FOREIGN KEY ("logo_id") REFERENCES "images" ("id");
 ALTER TABLE "venues" ADD FOREIGN KEY ("cover_photo_id") REFERENCES "images" ("id");
 ALTER TABLE "creators" ADD FOREIGN KEY ("photo_id") REFERENCES "images" ("id");

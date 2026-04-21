@@ -608,7 +608,7 @@ func (h *UserHandler) DeleteVenuePhoto(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        file formData file true "Файл изображения (jpg, jpeg, png, gif, webp, максимум 10MB)"
-// @Param        type formData string true "Тип изображения" Enums(avatar, venue-logo, venue-cover, venue-photo, creator-photo, event-cover)
+// @Param        type formData string true "Тип изображения" Enums(venue-logo, venue-cover, venue-photo, creator-photo, event-cover)
 // @Success      201 {object} models.Image "Изображение загружено"
 // @Failure      400 {object} apperror.ErrorResponse
 // @Failure      401 {object} apperror.ErrorResponse
@@ -623,7 +623,7 @@ func (h *UserHandler) UploadImage(c *gin.Context) {
 
 	imageType := c.PostForm("type")
 	if imageType == "" {
-		c.JSON(http.StatusBadRequest, apperror.One("FIELD_REQUIRED", "Image type is required (avatar, venue-logo, venue-cover, venue-photo, creator-photo, event-cover)"))
+		c.JSON(http.StatusBadRequest, apperror.One("FIELD_REQUIRED", "Image type is required (venue-logo, venue-cover, venue-photo, creator-photo, event-cover)"))
 		return
 	}
 
@@ -644,7 +644,7 @@ func (h *UserHandler) UploadImage(c *gin.Context) {
 			return
 		}
 		if errors.Is(err, service.ErrInvalidImageType) {
-			c.JSON(http.StatusBadRequest, apperror.One("INVALID_IMAGE_TYPE", "Invalid image type, allowed: avatar, venue-logo, venue-cover, venue-photo, creator-photo, event-cover"))
+			c.JSON(http.StatusBadRequest, apperror.One("INVALID_IMAGE_TYPE", "Invalid image type, allowed: venue-logo, venue-cover, venue-photo, creator-photo, event-cover"))
 			return
 		}
 		c.JSON(http.StatusInternalServerError, apperror.One("INTERNAL_ERROR", "Failed to upload image"))

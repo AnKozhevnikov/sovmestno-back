@@ -84,9 +84,6 @@ jobs:
           # Monitoring
           GRAFANA_ADMIN_PASSWORD=${{ secrets.STAGING_GRAFANA_ADMIN_PASSWORD }}
 
-          # pgAdmin
-          PGADMIN_DEFAULT_EMAIL=${{ secrets.STAGING_PGADMIN_DEFAULT_EMAIL }}
-          PGADMIN_DEFAULT_PASSWORD=${{ secrets.STAGING_PGADMIN_DEFAULT_PASSWORD }}
           ENVFILE
 
           # Copy .env file to server
