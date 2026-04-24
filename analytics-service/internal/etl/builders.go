@@ -26,8 +26,6 @@ func (b *Builders) RunFull() {
 	run("fact_collaborations", func() error { return BuildFactCollaborationsAll(b.db, b.ch) })
 }
 
-// RunDaily инкрементальный запуск: dim-таблицы перестраиваются полностью,
-// fact-таблицы — только изменения за последние 2 дня (перекрытие на случай обновлений статусов).
 func (b *Builders) RunDaily() {
 	since := time.Now().AddDate(0, 0, -2)
 	run("dim_user", func() error { return BuildDimUser(b.db, b.ch) })

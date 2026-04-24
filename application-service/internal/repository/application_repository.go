@@ -12,7 +12,6 @@ import (
 var ErrDuplicatePendingApplication = errors.New("pending application already exists for this event")
 var ErrMirrorApplicationExists = errors.New("incoming application already exists for this event, check your applications")
 
-// Event — локальная структура для обновления флагов события напрямую в общей БД
 type Event struct {
 	ID          int       `gorm:"primaryKey"`
 	IsActive    bool      `gorm:"column:is_active"`
@@ -109,7 +108,6 @@ func (r *ApplicationRepository) CompleteCollaborationTx(collaborationID int, eve
 	})
 }
 
-// CancelCollaborationTx атомарно отменяет коллаборацию. Событие не трогает — возврат в каталог через PublishEvent.
 func (r *ApplicationRepository) CancelCollaborationTx(collaborationID int) error {
 	return r.db.Model(&models.Collaboration{}).Where("id = ?", collaborationID).Update("status", "cancelled").Error
 }

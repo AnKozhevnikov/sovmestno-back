@@ -76,13 +76,12 @@ func isPublicRoute(path, method string) bool {
 		return true
 	}
 
-	// GET /api/event/categories и /api/event/categories/:id — публичные
-	// POST/PUT/DELETE требуют токен (только admin)
+	// GET /api/event/categories публичные, POST/PUT/DELETE требуют токен (только admin)
 	if method == http.MethodGet && strings.HasPrefix(path, "/api/event/categories") {
 		return true
 	}
 
-	// Newsletter — subscribe и unsubscribe публичные
+	// Newsletter: subscribe и unsubscribe публичные
 	if path == "/api/user/newsletter/subscribe" || path == "/api/user/newsletter/unsubscribe" {
 		return true
 	}
@@ -97,7 +96,7 @@ func isPublicRoute(path, method string) bool {
 		return true
 	}
 
-	// Публичное получение изображений (UUID — не enumerable)
+	// Публичное получение изображений
 	if method == http.MethodGet && strings.HasPrefix(path, "/api/user/users/images/") {
 		return true
 	}

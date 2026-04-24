@@ -155,7 +155,6 @@ func (s *ApplicationService) GetCollaborationByID(id int, userID int) (*models.C
 	return collab, nil
 }
 
-// CompleteCollaboration — creator подтверждает, что мероприятие состоялось.
 func (s *ApplicationService) CompleteCollaboration(id int, userID int, userRole string) (*models.Collaboration, error) {
 	if userRole != "creator" {
 		return nil, ErrAccessDenied
@@ -182,7 +181,6 @@ func (s *ApplicationService) CompleteCollaboration(id int, userID int, userRole 
 	return collab, nil
 }
 
-// CancelCollaboration — creator сообщает, что мероприятие не состоялось.
 func (s *ApplicationService) CancelCollaboration(id int, userID int, userRole string) error {
 	if userRole != "creator" {
 		return ErrAccessDenied

@@ -656,7 +656,7 @@ func (h *UserHandler) UploadImage(c *gin.Context) {
 
 // GetImage godoc
 // @Summary      Получить изображение
-// @Description  Возвращает изображение напрямую из хранилища. Публичный эндпоинт — авторизация не требуется.
+// @Description  Возвращает изображение напрямую из хранилища.
 // @Tags         images
 // @Produce      image/jpeg,image/png,image/gif,image/webp
 // @Param        id path string true "UUID изображения"

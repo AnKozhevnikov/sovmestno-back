@@ -10,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// PublicCreatorResponse — профиль создателя без личных контактов
 type PublicCreatorResponse struct {
 	ID          int                   `json:"id"`
 	UserID      int                   `json:"user_id"`
@@ -28,7 +27,6 @@ type PublicCreatorResponse struct {
 	Photos      []models.CreatorPhoto `json:"photos,omitempty"`
 }
 
-// PublicVenueResponse — профиль площадки без личных контактов
 type PublicVenueResponse struct {
 	ID            int                 `json:"id"`
 	UserID        int                 `json:"user_id"`
